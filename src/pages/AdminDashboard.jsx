@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Button, Card, message, DatePicker, Space, Tag, Modal, Form, Input, Select, Table, Dropdown } from 'antd';
-import { Users, Download, LogOut, UserPlus, Database, FileText, BarChart3, Menu as MenuIcon } from 'lucide-react';
+import { Users, Download, LogOut, UserPlus, Database, FileText, BarChart3, Menu as MenuIcon, GraduationCap, Plus, Edit, Trash2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
 import StudentForm from '../components/StudentForm';
@@ -16,14 +16,18 @@ const AdminDashboard = () => {
   const [franchises, setFranchises] = useState([]);
   const [franchiseStats, setFranchiseStats] = useState([]);
   const [students, setStudents] = useState([]);
+  const [universities, setUniversities] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
   const [dateRange, setDateRange] = useState(null);
   const [selectedFranchise, setSelectedFranchise] = useState(null);
   const [createFranchiseModal, setCreateFranchiseModal] = useState(false);
+  const [createUniversityModal, setCreateUniversityModal] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [createForm] = Form.useForm();
+  const [universityForm] = Form.useForm();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -31,6 +35,7 @@ const AdminDashboard = () => {
     { key: 'statistics', icon: <BarChart3 size={18} />, label: 'Statistics' },
     { key: 'submit-form', icon: <FileText size={18} />, label: 'Submit Form' },
     { key: 'franchises', icon: <Users size={18} />, label: 'Franchises' },
+    { key: 'universities', icon: <GraduationCap size={18} />, label: 'Universities' },
     { key: 'all-submissions', icon: <Database size={18} />, label: 'All Submissions' },
   ];
 
@@ -40,6 +45,43 @@ const AdminDashboard = () => {
       setFranchises(response.data);
     } catch (error) {
       message.error('Failed to load franchises');
+    }
+  };
+
+  const loadUniversities = async () => {
+    setLoading(true);
+    try {
+      const response = await adminAPI.getUniversities();
+      setUniversities(response.data);
+      // Also load courses for each university
+      const coursesResponse = await adminAPI.getCourses();
+      setCourses(coursesResponse.data);
+    } catch (error) {
+      message.error('Failed to load universities');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateUniversity = async (values) => {
+    try {
+      await adminAPI.createUniversity(values);
+      message.success('University created successfully!');
+      setCreateUniversityModal(false);
+      universityForm.resetFields();
+      loadUniversities();
+    } catch (error) {
+      message.error(error.response?.data?.detail || 'Failed to create university');
+    }
+  };
+
+  const handleDeleteUniversity = async (id) => {
+    try {
+      await adminAPI.deleteUniversity(id);
+      message.success('University deleted successfully!');
+      loadUniversities();
+    } catch (error) {
+      message.error(error.response?.data?.detail || 'Failed to delete university');
     }
   };
 
@@ -93,6 +135,8 @@ const AdminDashboard = () => {
       loadStudents();
     } else if (location.pathname === '/admin/franchises' || location.pathname === '/admin/statistics' || location.pathname === '/admin') {
       loadFranchiseStats();
+    } else if (location.pathname === '/admin/universities') {
+      loadUniversities();
     }
   }, [location.pathname, dateRange, selectedFranchise]);
 
@@ -220,6 +264,44 @@ const AdminDashboard = () => {
         </Card>
       );
     }
+    if (location.pathname === '/admin/universities') {
+      const universityColumns = [
+        { title: 'Name', dataIndex: 'name', key: 'name' },
+        { title: 'Code', dataIndex: 'code', key: 'code' },
+        { title: 'Location', dataIndex: 'location', key: 'location' },
+        { title: 'Accreditation', dataIndex: 'accreditation', key: 'accreditation' },
+        { title: 'Courses', key: 'courses', render: (_, record) => {
+          const univCourses = courses.filter(c => c.university_id === record.id);
+          return <Tag color="blue">{univCourses.length} courses</Tag>;
+        }},
+        { title: 'Status', dataIndex: 'is_active', key: 'is_active', render: (active) => <Tag color={active ? 'green' : 'red'}>{active ? 'Active' : 'Inactive'}</Tag> },
+        {
+          title: 'Actions',
+          key: 'actions',
+          render: (_, record) => (
+            <Button
+              danger
+              size="small"
+              icon={<Trash2 size={14} />}
+              onClick={() => {
+                Modal.confirm({
+                  title: 'Delete University',
+                  content: `Are you sure you want to delete ${record.name}?`,
+                  onOk: () => handleDeleteUniversity(record.id)
+                });
+              }}
+            >
+              Delete
+            </Button>
+          )
+        }
+      ];
+      return (
+        <Card title={`Universities (${universities.length})`} extra={<Button type="primary" icon={<Plus size={18} />} onClick={() => setCreateUniversityModal(true)}>Add University</Button>}>
+          <Table columns={universityColumns} dataSource={universities} rowKey="id" loading={loading} scroll={{ x: 800 }} pagination={{ pageSize: 10 }} />
+        </Card>
+      );
+    }
     return (
       <div>
         <Card className="filters-container">
@@ -254,12 +336,13 @@ const AdminDashboard = () => {
         <Sider width={250} breakpoint="lg" collapsedWidth="0" className={mobileOpen ? 'mobile-open' : ''} onBreakpoint={(broken) => { if (!broken) setMobileOpen(false); }}>
           <Menu
             mode="inline"
-            selectedKeys={[location.pathname === '/admin/statistics' || location.pathname === '/admin' ? 'statistics' : location.pathname === '/admin/submit-form' ? 'submit-form' : location.pathname === '/admin/franchises' ? 'franchises' : 'all-submissions']}
+            selectedKeys={[location.pathname === '/admin/statistics' || location.pathname === '/admin' ? 'statistics' : location.pathname === '/admin/submit-form' ? 'submit-form' : location.pathname === '/admin/franchises' ? 'franchises' : location.pathname === '/admin/universities' ? 'universities' : 'all-submissions']}
             items={menuItems}
             onClick={({ key }) => {
               if (key === 'statistics') navigate('/admin/statistics');
               else if (key === 'submit-form') navigate('/admin/submit-form');
               else if (key === 'franchises') navigate('/admin/franchises');
+              else if (key === 'universities') navigate('/admin/universities');
               else if (key === 'all-submissions') navigate('/admin/all-submissions');
               setMobileOpen(false);
             }}
@@ -288,6 +371,35 @@ const AdminDashboard = () => {
             <Space>
               <Button type="primary" htmlType="submit">Create Franchise</Button>
               <Button onClick={() => setCreateFranchiseModal(false)}>Cancel</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal title="Add New University" open={createUniversityModal} onCancel={() => setCreateUniversityModal(false)} footer={null} width={600}>
+        <Form form={universityForm} layout="vertical" onFinish={handleCreateUniversity}>
+          <Form.Item name="name" label="University Name" rules={[{ required: true, message: 'Please enter university name' }]}>
+            <Input placeholder="Enter university name" />
+          </Form.Item>
+          <Form.Item name="code" label="University Code" rules={[{ required: true, message: 'Please enter university code' }]}>
+            <Input placeholder="e.g., DU, IITD" />
+          </Form.Item>
+          <Form.Item name="location" label="Location">
+            <Input placeholder="Enter location" />
+          </Form.Item>
+          <Form.Item name="accreditation" label="Accreditation">
+            <Input placeholder="e.g., NAAC A++" />
+          </Form.Item>
+          <Form.Item name="is_active" label="Status" initialValue={true} rules={[{ required: true }]}>
+            <Select>
+              <Option value={true}>Active</Option>
+              <Option value={false}>Inactive</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit">Add University</Button>
+              <Button onClick={() => setCreateUniversityModal(false)}>Cancel</Button>
             </Space>
           </Form.Item>
         </Form>

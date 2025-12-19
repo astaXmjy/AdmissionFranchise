@@ -52,6 +52,21 @@ export const adminAPI = {
     params,
     responseType: 'blob'
   }),
+  // University management
+  getUniversities: () => api.get('/admin/universities'),
+  createUniversity: (data) => api.post('/admin/universities', data),
+  updateUniversity: (id, data) => api.patch(`/admin/universities/${id}`, data),
+  deleteUniversity: (id) => api.delete(`/admin/universities/${id}`),
+  // Course management
+  getCourses: (params) => api.get('/admin/courses', { params }),
+  createCourse: (data) => api.post('/admin/courses', data),
+  updateCourse: (id, data) => api.patch(`/admin/courses/${id}`, data),
+  deleteCourse: (id) => api.delete(`/admin/courses/${id}`),
+  // Fee management
+  getFees: (params) => api.get('/admin/fees', { params }),
+  createFee: (data) => api.post('/admin/fees', data),
+  updateFee: (id, data) => api.patch(`/admin/fees/${id}`, data),
+  deleteFee: (id) => api.delete(`/admin/fees/${id}`),
 };
 
 export const franchiseAPI = {
