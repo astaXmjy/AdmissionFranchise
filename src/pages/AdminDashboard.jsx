@@ -29,6 +29,9 @@ const AdminDashboard = () => {
   const [createUniversityModal, setCreateUniversityModal] = useState(false);
   const [createCourseModal, setCreateCourseModal] = useState(false);
   const [createFeeModal, setCreateFeeModal] = useState(false);
+  const [editingUniversity, setEditingUniversity] = useState(null);
+  const [editingCourse, setEditingCourse] = useState(null);
+  const [editingFee, setEditingFee] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [createForm] = Form.useForm();
   const [universityForm] = Form.useForm();
@@ -73,14 +76,26 @@ const AdminDashboard = () => {
 
   const handleCreateUniversity = async (values) => {
     try {
-      await adminAPI.createUniversity(values);
-      message.success('University created successfully!');
+      if (editingUniversity) {
+        await adminAPI.updateUniversity(editingUniversity.id, values);
+        message.success('University updated successfully!');
+      } else {
+        await adminAPI.createUniversity(values);
+        message.success('University created successfully!');
+      }
       setCreateUniversityModal(false);
+      setEditingUniversity(null);
       universityForm.resetFields();
       loadUniversities();
     } catch (error) {
-      message.error(error.response?.data?.detail || 'Failed to create university');
+      message.error(error.response?.data?.detail || 'Failed to save university');
     }
+  };
+
+  const handleEditUniversity = (university) => {
+    setEditingUniversity(university);
+    universityForm.setFieldsValue(university);
+    setCreateUniversityModal(true);
   };
 
   const handleDeleteUniversity = async (id) => {
@@ -118,14 +133,29 @@ const AdminDashboard = () => {
 
   const handleCreateCourse = async (values) => {
     try {
-      await adminAPI.createCourse(values);
-      message.success('Course created successfully!');
+      if (editingCourse) {
+        await adminAPI.updateCourse(editingCourse.id, values);
+        message.success('Course updated successfully!');
+      } else {
+        await adminAPI.createCourse(values);
+        message.success('Course created successfully!');
+      }
       setCreateCourseModal(false);
+      setEditingCourse(null);
       courseForm.resetFields();
       loadCourses();
     } catch (error) {
-      message.error(error.response?.data?.detail || 'Failed to create course');
+      message.error(error.response?.data?.detail || 'Failed to save course');
     }
+  };
+
+  const handleEditCourse = (course) => {
+    setEditingCourse(course);
+    courseForm.setFieldsValue({
+      ...course,
+      duration_years: course.duration_years.toString()
+    });
+    setCreateCourseModal(true);
   };
 
   const handleDeleteCourse = async (id) => {
@@ -162,14 +192,26 @@ const AdminDashboard = () => {
 
   const handleCreateFee = async (values) => {
     try {
-      await adminAPI.createFee(values);
-      message.success('Fee structure created successfully!');
+      if (editingFee) {
+        await adminAPI.updateFee(editingFee.id, values);
+        message.success('Fee structure updated successfully!');
+      } else {
+        await adminAPI.createFee(values);
+        message.success('Fee structure created successfully!');
+      }
       setCreateFeeModal(false);
+      setEditingFee(null);
       feeForm.resetFields();
       loadFees();
     } catch (error) {
-      message.error(error.response?.data?.detail || 'Failed to create fee');
+      message.error(error.response?.data?.detail || 'Failed to save fee');
     }
+  };
+
+  const handleEditFee = (fee) => {
+    setEditingFee(fee);
+    feeForm.setFieldsValue(fee);
+    setCreateFeeModal(true);
   };
 
   const handleDeleteFee = async (id) => {
@@ -389,26 +431,36 @@ const AdminDashboard = () => {
         {
           title: 'Actions',
           key: 'actions',
+          width: 200,
           render: (_, record) => (
-            <Button
-              danger
-              size="small"
-              icon={<Trash2 size={14} />}
-              onClick={() => {
-                Modal.confirm({
-                  title: 'Delete University',
-                  content: `Are you sure you want to delete ${record.name}?`,
-                  onOk: () => handleDeleteUniversity(record.id)
-                });
-              }}
-            >
-              Delete
-            </Button>
+            <Space>
+              <Button
+                size="small"
+                icon={<Edit size={14} />}
+                onClick={() => handleEditUniversity(record)}
+              >
+                Edit
+              </Button>
+              <Button
+                danger
+                size="small"
+                icon={<Trash2 size={14} />}
+                onClick={() => {
+                  Modal.confirm({
+                    title: 'Delete University',
+                    content: `Are you sure you want to delete ${record.name}?`,
+                    onOk: () => handleDeleteUniversity(record.id)
+                  });
+                }}
+              >
+                Delete
+              </Button>
+            </Space>
           )
         }
       ];
       return (
-        <Card title={`Universities (${universities.length})`} extra={<Button type="primary" icon={<Plus size={18} />} onClick={() => setCreateUniversityModal(true)}>Add University</Button>}>
+        <Card title={`Universities (${universities.length})`} extra={<Button type="primary" icon={<Plus size={18} />} onClick={() => { setEditingUniversity(null); universityForm.resetFields(); setCreateUniversityModal(true); }}>Add University</Button>}>
           <Table columns={universityColumns} dataSource={universities} rowKey="id" loading={loading} scroll={{ x: 800 }} pagination={{ pageSize: 10 }} />
         </Card>
       );
@@ -432,22 +484,31 @@ const AdminDashboard = () => {
         {
           title: 'Actions',
           key: 'actions',
-          width: 100,
+          width: 180,
           render: (_, record) => (
-            <Button
-              danger
-              size="small"
-              icon={<Trash2 size={14} />}
-              onClick={() => {
-                Modal.confirm({
-                  title: 'Delete Course',
-                  content: `Are you sure you want to delete ${record.name}?`,
-                  onOk: () => handleDeleteCourse(record.id)
-                });
-              }}
-            >
-              Delete
-            </Button>
+            <Space>
+              <Button
+                size="small"
+                icon={<Edit size={14} />}
+                onClick={() => handleEditCourse(record)}
+              >
+                Edit
+              </Button>
+              <Button
+                danger
+                size="small"
+                icon={<Trash2 size={14} />}
+                onClick={() => {
+                  Modal.confirm({
+                    title: 'Delete Course',
+                    content: `Are you sure you want to delete ${record.name}?`,
+                    onOk: () => handleDeleteCourse(record.id)
+                  });
+                }}
+              >
+                Delete
+              </Button>
+            </Space>
           )
         }
       ];
@@ -461,7 +522,7 @@ const AdminDashboard = () => {
               </Select>
             </Space>
           </Card>
-          <Card title={`Courses (${courses.length})`} extra={<Button type="primary" icon={<Plus size={18} />} onClick={() => setCreateCourseModal(true)}>Add Course</Button>}>
+          <Card title={`Courses (${courses.length})`} extra={<Button type="primary" icon={<Plus size={18} />} onClick={() => { setEditingCourse(null); courseForm.resetFields(); setCreateCourseModal(true); }}>Add Course</Button>}>
             <Table columns={courseColumns} dataSource={courses} rowKey="id" loading={loading} scroll={{ x: 1000 }} pagination={{ pageSize: 10 }} />
           </Card>
         </div>
@@ -480,27 +541,36 @@ const AdminDashboard = () => {
         {
           title: 'Actions',
           key: 'actions',
-          width: 100,
+          width: 180,
           render: (_, record) => (
-            <Button
-              danger
-              size="small"
-              icon={<Trash2 size={14} />}
-              onClick={() => {
-                Modal.confirm({
-                  title: 'Delete Fee',
-                  content: 'Are you sure you want to delete this fee structure?',
-                  onOk: () => handleDeleteFee(record.id)
-                });
-              }}
-            >
-              Delete
-            </Button>
+            <Space>
+              <Button
+                size="small"
+                icon={<Edit size={14} />}
+                onClick={() => handleEditFee(record)}
+              >
+                Edit
+              </Button>
+              <Button
+                danger
+                size="small"
+                icon={<Trash2 size={14} />}
+                onClick={() => {
+                  Modal.confirm({
+                    title: 'Delete Fee',
+                    content: 'Are you sure you want to delete this fee structure?',
+                    onOk: () => handleDeleteFee(record.id)
+                  });
+                }}
+              >
+                Delete
+              </Button>
+            </Space>
           )
         }
       ];
       return (
-        <Card title={`Fee Structures (${fees.length})`} extra={<Button type="primary" icon={<Plus size={18} />} onClick={() => setCreateFeeModal(true)}>Add Fee Structure</Button>}>
+        <Card title={`Fee Structures (${fees.length})`} extra={<Button type="primary" icon={<Plus size={18} />} onClick={() => { setEditingFee(null); feeForm.resetFields(); setCreateFeeModal(true); }}>Add Fee Structure</Button>}>
           <Table columns={feeColumns} dataSource={fees} rowKey="id" loading={loading} scroll={{ x: 1200 }} pagination={{ pageSize: 10 }} />
         </Card>
       );
@@ -589,7 +659,17 @@ const AdminDashboard = () => {
         </Form>
       </Modal>
 
-      <Modal title="Add New University" open={createUniversityModal} onCancel={() => setCreateUniversityModal(false)} footer={null} width={600}>
+      <Modal
+        title={editingUniversity ? "Edit University" : "Add New University"}
+        open={createUniversityModal}
+        onCancel={() => {
+          setCreateUniversityModal(false);
+          setEditingUniversity(null);
+          universityForm.resetFields();
+        }}
+        footer={null}
+        width={600}
+      >
         <Form form={universityForm} layout="vertical" onFinish={handleCreateUniversity}>
           <Form.Item name="name" label="University Name" rules={[{ required: true, message: 'Please enter university name' }]}>
             <Input placeholder="Enter university name" />
@@ -611,14 +691,30 @@ const AdminDashboard = () => {
           </Form.Item>
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">Add University</Button>
-              <Button onClick={() => setCreateUniversityModal(false)}>Cancel</Button>
+              <Button type="primary" htmlType="submit">
+                {editingUniversity ? 'Update University' : 'Add University'}
+              </Button>
+              <Button onClick={() => {
+                setCreateUniversityModal(false);
+                setEditingUniversity(null);
+                universityForm.resetFields();
+              }}>Cancel</Button>
             </Space>
           </Form.Item>
         </Form>
       </Modal>
 
-      <Modal title="Add New Course" open={createCourseModal} onCancel={() => setCreateCourseModal(false)} footer={null} width={600}>
+      <Modal
+        title={editingCourse ? "Edit Course" : "Add New Course"}
+        open={createCourseModal}
+        onCancel={() => {
+          setCreateCourseModal(false);
+          setEditingCourse(null);
+          courseForm.resetFields();
+        }}
+        footer={null}
+        width={600}
+      >
         <Form form={courseForm} layout="vertical" onFinish={handleCreateCourse}>
           <Form.Item name="university_id" label="University" rules={[{ required: true, message: 'Please select university' }]}>
             <Select placeholder="Select university">
@@ -653,14 +749,30 @@ const AdminDashboard = () => {
           </Form.Item>
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">Add Course</Button>
-              <Button onClick={() => setCreateCourseModal(false)}>Cancel</Button>
+              <Button type="primary" htmlType="submit">
+                {editingCourse ? 'Update Course' : 'Add Course'}
+              </Button>
+              <Button onClick={() => {
+                setCreateCourseModal(false);
+                setEditingCourse(null);
+                courseForm.resetFields();
+              }}>Cancel</Button>
             </Space>
           </Form.Item>
         </Form>
       </Modal>
 
-      <Modal title="Add Fee Structure" open={createFeeModal} onCancel={() => setCreateFeeModal(false)} footer={null} width={600}>
+      <Modal
+        title={editingFee ? "Edit Fee Structure" : "Add Fee Structure"}
+        open={createFeeModal}
+        onCancel={() => {
+          setCreateFeeModal(false);
+          setEditingFee(null);
+          feeForm.resetFields();
+        }}
+        footer={null}
+        width={600}
+      >
         <Form form={feeForm} layout="vertical" onFinish={handleCreateFee}>
           <Form.Item name="course_id" label="Course" rules={[{ required: true, message: 'Please select course' }]}>
             <Select placeholder="Select course" showSearch optionFilterProp="children">
@@ -696,8 +808,14 @@ const AdminDashboard = () => {
           </Form.Item>
           <Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit">Add Fee Structure</Button>
-              <Button onClick={() => setCreateFeeModal(false)}>Cancel</Button>
+              <Button type="primary" htmlType="submit">
+                {editingFee ? 'Update Fee Structure' : 'Add Fee Structure'}
+              </Button>
+              <Button onClick={() => {
+                setCreateFeeModal(false);
+                setEditingFee(null);
+                feeForm.resetFields();
+              }}>Cancel</Button>
             </Space>
           </Form.Item>
         </Form>
