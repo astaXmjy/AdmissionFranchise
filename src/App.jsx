@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import FranchiseDashboard from './pages/FranchiseDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
+import Footer from './components/Footer';
 import './App.css';
 
 function App() {
@@ -43,6 +44,7 @@ function App() {
             />
             <Route path="/" element={<Navigate to="/login" replace />} />
           </Routes>
+          <Footer />
         </div>
       </Router>
     </ConfigProvider>

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, message, Space } from 'antd';
-import { User, Lock, GraduationCap } from 'lucide-react';
+import { User, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
+import logoImage from '../assets/skilledge-logo.png';
 import '../App.css';
 
 const Login = () => {
@@ -59,8 +60,8 @@ const Login = () => {
     <div className="login-container">
       <Card className="login-form">
         <div className="login-header">
-          <div className="login-icon">
-            <GraduationCap size={48} strokeWidth={2} />
+          <div className="login-logo">
+            <img src={logoImage} alt="Skilledge Learning Solution" className="logo-image" />
           </div>
           <h1 className="login-title">Admission Management System</h1>
           <p className="login-subtitle">Sign in to continue</p>
