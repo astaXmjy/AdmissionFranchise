@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Button, Card, message, DatePicker, Space, Tag, Modal, Form, Input, Select, Table, Dropdown } from 'antd';
-import { Users, Download, LogOut, UserPlus, Database, FileText, BarChart3, Menu as MenuIcon, GraduationCap, Plus, Edit, Trash2 } from 'lucide-react';
+import { Users, Download, LogOut, UserPlus, Database, FileText, BarChart3, Menu as MenuIcon, GraduationCap, Plus, Edit, Trash2, BookOpen } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
 import StudentForm from '../components/StudentForm';
@@ -18,16 +18,22 @@ const AdminDashboard = () => {
   const [students, setStudents] = useState([]);
   const [universities, setUniversities] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [fees, setFees] = useState([]);
   const [statistics, setStatistics] = useState(null);
   const [loading, setLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
   const [dateRange, setDateRange] = useState(null);
   const [selectedFranchise, setSelectedFranchise] = useState(null);
+  const [selectedUniversity, setSelectedUniversity] = useState(null);
   const [createFranchiseModal, setCreateFranchiseModal] = useState(false);
   const [createUniversityModal, setCreateUniversityModal] = useState(false);
+  const [createCourseModal, setCreateCourseModal] = useState(false);
+  const [createFeeModal, setCreateFeeModal] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [createForm] = Form.useForm();
   const [universityForm] = Form.useForm();
+  const [courseForm] = Form.useForm();
+  const [feeForm] = Form.useForm();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -36,6 +42,8 @@ const AdminDashboard = () => {
     { key: 'submit-form', icon: <FileText size={18} />, label: 'Submit Form' },
     { key: 'franchises', icon: <Users size={18} />, label: 'Franchises' },
     { key: 'universities', icon: <GraduationCap size={18} />, label: 'Universities' },
+    { key: 'courses', icon: <BookOpen size={18} />, label: 'Courses' },
+    { key: 'fees', icon: <Database size={18} />, label: 'Fees' },
     { key: 'all-submissions', icon: <Database size={18} />, label: 'All Submissions' },
   ];
 
@@ -82,6 +90,95 @@ const AdminDashboard = () => {
       loadUniversities();
     } catch (error) {
       message.error(error.response?.data?.detail || 'Failed to delete university');
+    }
+  };
+
+  const handleToggleUniversityStatus = async (id, currentStatus) => {
+    try {
+      await adminAPI.updateUniversity(id, { is_active: !currentStatus });
+      message.success('University status updated!');
+      loadUniversities();
+    } catch (error) {
+      message.error('Failed to update status');
+    }
+  };
+
+  const loadCourses = async () => {
+    setLoading(true);
+    try {
+      const params = selectedUniversity ? { university_id: selectedUniversity } : {};
+      const response = await adminAPI.getCourses(params);
+      setCourses(response.data);
+    } catch (error) {
+      message.error('Failed to load courses');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateCourse = async (values) => {
+    try {
+      await adminAPI.createCourse(values);
+      message.success('Course created successfully!');
+      setCreateCourseModal(false);
+      courseForm.resetFields();
+      loadCourses();
+    } catch (error) {
+      message.error(error.response?.data?.detail || 'Failed to create course');
+    }
+  };
+
+  const handleDeleteCourse = async (id) => {
+    try {
+      await adminAPI.deleteCourse(id);
+      message.success('Course deleted successfully!');
+      loadCourses();
+    } catch (error) {
+      message.error(error.response?.data?.detail || 'Failed to delete course');
+    }
+  };
+
+  const handleToggleCourseStatus = async (id, currentStatus) => {
+    try {
+      await adminAPI.updateCourse(id, { is_active: !currentStatus });
+      message.success('Course status updated!');
+      loadCourses();
+    } catch (error) {
+      message.error('Failed to update status');
+    }
+  };
+
+  const loadFees = async () => {
+    setLoading(true);
+    try {
+      const response = await adminAPI.getFees();
+      setFees(response.data);
+    } catch (error) {
+      message.error('Failed to load fees');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateFee = async (values) => {
+    try {
+      await adminAPI.createFee(values);
+      message.success('Fee structure created successfully!');
+      setCreateFeeModal(false);
+      feeForm.resetFields();
+      loadFees();
+    } catch (error) {
+      message.error(error.response?.data?.detail || 'Failed to create fee');
+    }
+  };
+
+  const handleDeleteFee = async (id) => {
+    try {
+      await adminAPI.deleteFee(id);
+      message.success('Fee deleted successfully!');
+      loadFees();
+    } catch (error) {
+      message.error(error.response?.data?.detail || 'Failed to delete fee');
     }
   };
 
@@ -137,8 +234,14 @@ const AdminDashboard = () => {
       loadFranchiseStats();
     } else if (location.pathname === '/admin/universities') {
       loadUniversities();
+    } else if (location.pathname === '/admin/courses') {
+      loadUniversities(); // Load universities for filter
+      loadCourses();
+    } else if (location.pathname === '/admin/fees') {
+      loadCourses(); // Load courses for dropdown
+      loadFees();
     }
-  }, [location.pathname, dateRange, selectedFranchise]);
+  }, [location.pathname, dateRange, selectedFranchise, selectedUniversity]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -274,7 +377,15 @@ const AdminDashboard = () => {
           const univCourses = courses.filter(c => c.university_id === record.id);
           return <Tag color="blue">{univCourses.length} courses</Tag>;
         }},
-        { title: 'Status', dataIndex: 'is_active', key: 'is_active', render: (active) => <Tag color={active ? 'green' : 'red'}>{active ? 'Active' : 'Inactive'}</Tag> },
+        { title: 'Status', dataIndex: 'is_active', key: 'is_active', render: (active, record) => (
+          <Button
+            size="small"
+            type={active ? 'primary' : 'default'}
+            onClick={() => handleToggleUniversityStatus(record.id, active)}
+          >
+            {active ? 'Active' : 'Inactive'}
+          </Button>
+        )},
         {
           title: 'Actions',
           key: 'actions',
@@ -299,6 +410,98 @@ const AdminDashboard = () => {
       return (
         <Card title={`Universities (${universities.length})`} extra={<Button type="primary" icon={<Plus size={18} />} onClick={() => setCreateUniversityModal(true)}>Add University</Button>}>
           <Table columns={universityColumns} dataSource={universities} rowKey="id" loading={loading} scroll={{ x: 800 }} pagination={{ pageSize: 10 }} />
+        </Card>
+      );
+    }
+    if (location.pathname === '/admin/courses') {
+      const courseColumns = [
+        { title: 'Name', dataIndex: 'name', key: 'name', width: 200 },
+        { title: 'Code', dataIndex: 'code', key: 'code', width: 100 },
+        { title: 'University', key: 'university', render: (_, record) => record.university?.name || 'N/A', width: 200 },
+        { title: 'Duration', dataIndex: 'duration_years', key: 'duration_years', render: (years) => `${years} years`, width: 100 },
+        { title: 'Type', dataIndex: 'degree_type', key: 'degree_type', width: 150 },
+        { title: 'Status', dataIndex: 'is_active', key: 'is_active', width: 120, render: (active, record) => (
+          <Button
+            size="small"
+            type={active ? 'primary' : 'default'}
+            onClick={() => handleToggleCourseStatus(record.id, active)}
+          >
+            {active ? 'Active' : 'Inactive'}
+          </Button>
+        )},
+        {
+          title: 'Actions',
+          key: 'actions',
+          width: 100,
+          render: (_, record) => (
+            <Button
+              danger
+              size="small"
+              icon={<Trash2 size={14} />}
+              onClick={() => {
+                Modal.confirm({
+                  title: 'Delete Course',
+                  content: `Are you sure you want to delete ${record.name}?`,
+                  onOk: () => handleDeleteCourse(record.id)
+                });
+              }}
+            >
+              Delete
+            </Button>
+          )
+        }
+      ];
+      return (
+        <div>
+          <Card className="filters-container">
+            <Space wrap>
+              <span>Filter by university:</span>
+              <Select placeholder="All universities" style={{ width: 250 }} value={selectedUniversity} onChange={setSelectedUniversity} allowClear>
+                {universities.map(u => <Option key={u.id} value={u.id}>{u.name}</Option>)}
+              </Select>
+            </Space>
+          </Card>
+          <Card title={`Courses (${courses.length})`} extra={<Button type="primary" icon={<Plus size={18} />} onClick={() => setCreateCourseModal(true)}>Add Course</Button>}>
+            <Table columns={courseColumns} dataSource={courses} rowKey="id" loading={loading} scroll={{ x: 1000 }} pagination={{ pageSize: 10 }} />
+          </Card>
+        </div>
+      );
+    }
+    if (location.pathname === '/admin/fees') {
+      const feeColumns = [
+        { title: 'Course', key: 'course', render: (_, record) => record.course?.name || 'N/A', width: 200 },
+        { title: 'University', key: 'university', render: (_, record) => record.course?.university?.name || 'N/A', width: 200 },
+        { title: 'Tuition Fee', dataIndex: 'tuition_fee', key: 'tuition_fee', render: (fee) => `₹${fee}`, width: 120 },
+        { title: 'Registration', dataIndex: 'registration_fee', key: 'registration_fee', render: (fee) => `₹${fee}`, width: 120 },
+        { title: 'Exam (Yearly)', dataIndex: 'exam_fee_yearly', key: 'exam_fee_yearly', render: (fee) => `₹${fee}`, width: 120 },
+        { title: 'Other Fees', dataIndex: 'other_fees', key: 'other_fees', render: (fee) => `₹${fee}`, width: 100 },
+        { title: 'Total', dataIndex: 'total_fee', key: 'total_fee', render: (fee) => <Tag color="green">₹{fee}</Tag>, width: 120 },
+        { title: 'Academic Year', dataIndex: 'academic_year', key: 'academic_year', width: 130 },
+        {
+          title: 'Actions',
+          key: 'actions',
+          width: 100,
+          render: (_, record) => (
+            <Button
+              danger
+              size="small"
+              icon={<Trash2 size={14} />}
+              onClick={() => {
+                Modal.confirm({
+                  title: 'Delete Fee',
+                  content: 'Are you sure you want to delete this fee structure?',
+                  onOk: () => handleDeleteFee(record.id)
+                });
+              }}
+            >
+              Delete
+            </Button>
+          )
+        }
+      ];
+      return (
+        <Card title={`Fee Structures (${fees.length})`} extra={<Button type="primary" icon={<Plus size={18} />} onClick={() => setCreateFeeModal(true)}>Add Fee Structure</Button>}>
+          <Table columns={feeColumns} dataSource={fees} rowKey="id" loading={loading} scroll={{ x: 1200 }} pagination={{ pageSize: 10 }} />
         </Card>
       );
     }
@@ -336,13 +539,23 @@ const AdminDashboard = () => {
         <Sider width={250} breakpoint="lg" collapsedWidth="0" className={mobileOpen ? 'mobile-open' : ''} onBreakpoint={(broken) => { if (!broken) setMobileOpen(false); }}>
           <Menu
             mode="inline"
-            selectedKeys={[location.pathname === '/admin/statistics' || location.pathname === '/admin' ? 'statistics' : location.pathname === '/admin/submit-form' ? 'submit-form' : location.pathname === '/admin/franchises' ? 'franchises' : location.pathname === '/admin/universities' ? 'universities' : 'all-submissions']}
+            selectedKeys={[
+              location.pathname === '/admin/statistics' || location.pathname === '/admin' ? 'statistics' :
+              location.pathname === '/admin/submit-form' ? 'submit-form' :
+              location.pathname === '/admin/franchises' ? 'franchises' :
+              location.pathname === '/admin/universities' ? 'universities' :
+              location.pathname === '/admin/courses' ? 'courses' :
+              location.pathname === '/admin/fees' ? 'fees' :
+              'all-submissions'
+            ]}
             items={menuItems}
             onClick={({ key }) => {
               if (key === 'statistics') navigate('/admin/statistics');
               else if (key === 'submit-form') navigate('/admin/submit-form');
               else if (key === 'franchises') navigate('/admin/franchises');
               else if (key === 'universities') navigate('/admin/universities');
+              else if (key === 'courses') navigate('/admin/courses');
+              else if (key === 'fees') navigate('/admin/fees');
               else if (key === 'all-submissions') navigate('/admin/all-submissions');
               setMobileOpen(false);
             }}
@@ -400,6 +613,91 @@ const AdminDashboard = () => {
             <Space>
               <Button type="primary" htmlType="submit">Add University</Button>
               <Button onClick={() => setCreateUniversityModal(false)}>Cancel</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal title="Add New Course" open={createCourseModal} onCancel={() => setCreateCourseModal(false)} footer={null} width={600}>
+        <Form form={courseForm} layout="vertical" onFinish={handleCreateCourse}>
+          <Form.Item name="university_id" label="University" rules={[{ required: true, message: 'Please select university' }]}>
+            <Select placeholder="Select university">
+              {universities.map(u => <Option key={u.id} value={u.id}>{u.name}</Option>)}
+            </Select>
+          </Form.Item>
+          <Form.Item name="name" label="Course Name" rules={[{ required: true, message: 'Please enter course name' }]}>
+            <Input placeholder="e.g., Bachelor of Science" />
+          </Form.Item>
+          <Form.Item name="code" label="Course Code" rules={[{ required: true, message: 'Please enter course code' }]}>
+            <Input placeholder="e.g., BSC, BTECH" />
+          </Form.Item>
+          <Form.Item name="duration_years" label="Duration (Years)" rules={[{ required: true, message: 'Please enter duration' }]}>
+            <Input type="number" placeholder="e.g., 3, 4" />
+          </Form.Item>
+          <Form.Item name="degree_type" label="Degree Type" rules={[{ required: true, message: 'Please select degree type' }]}>
+            <Select placeholder="Select degree type">
+              <Option value="Undergraduate">Undergraduate</Option>
+              <Option value="Postgraduate">Postgraduate</Option>
+              <Option value="Diploma">Diploma</Option>
+              <Option value="Certificate">Certificate</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="description" label="Description">
+            <Input.TextArea placeholder="Enter course description" rows={3} />
+          </Form.Item>
+          <Form.Item name="is_active" label="Status" initialValue={true} rules={[{ required: true }]}>
+            <Select>
+              <Option value={true}>Active</Option>
+              <Option value={false}>Inactive</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit">Add Course</Button>
+              <Button onClick={() => setCreateCourseModal(false)}>Cancel</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal title="Add Fee Structure" open={createFeeModal} onCancel={() => setCreateFeeModal(false)} footer={null} width={600}>
+        <Form form={feeForm} layout="vertical" onFinish={handleCreateFee}>
+          <Form.Item name="course_id" label="Course" rules={[{ required: true, message: 'Please select course' }]}>
+            <Select placeholder="Select course" showSearch optionFilterProp="children">
+              {courses.map(c => <Option key={c.id} value={c.id}>{c.name} - {c.university?.name}</Option>)}
+            </Select>
+          </Form.Item>
+          <Form.Item name="tuition_fee" label="Tuition Fee" rules={[{ required: true, message: 'Please enter tuition fee' }]}>
+            <Input type="number" placeholder="e.g., 50000" prefix="₹" />
+          </Form.Item>
+          <Form.Item name="registration_fee" label="Registration Fee" rules={[{ required: true, message: 'Please enter registration fee' }]}>
+            <Input type="number" placeholder="e.g., 5000" prefix="₹" />
+          </Form.Item>
+          <Form.Item name="exam_fee_yearly" label="Exam Fee (Yearly)" rules={[{ required: true, message: 'Please enter exam fee' }]}>
+            <Input type="number" placeholder="e.g., 3000" prefix="₹" />
+          </Form.Item>
+          <Form.Item name="other_fees" label="Other Fees">
+            <Input type="number" placeholder="e.g., 2000" prefix="₹" />
+          </Form.Item>
+          <Form.Item name="academic_year" label="Academic Year" rules={[{ required: true, message: 'Please enter academic year' }]}>
+            <Input placeholder="e.g., 2024-2025" />
+          </Form.Item>
+          <Form.Item name="currency" label="Currency" initialValue="INR" rules={[{ required: true }]}>
+            <Select>
+              <Option value="INR">INR</Option>
+              <Option value="USD">USD</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="is_active" label="Status" initialValue={true} rules={[{ required: true }]}>
+            <Select>
+              <Option value={true}>Active</Option>
+              <Option value={false}>Inactive</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit">Add Fee Structure</Button>
+              <Button onClick={() => setCreateFeeModal(false)}>Cancel</Button>
             </Space>
           </Form.Item>
         </Form>
