@@ -118,7 +118,7 @@ const FranchiseDashboard = () => {
       return <StatisticsCard stats={statistics} loading={statsLoading} />;
     }
     if (location.pathname === '/franchise/submit-form') {
-      return <StudentForm onSuccess={() => { loadStudents(); loadStatistics(); }} />;
+      return <StudentForm userRole="franchise" onSuccess={() => { loadStudents(); loadStatistics(); }} />;
     }
     return (
       <div>

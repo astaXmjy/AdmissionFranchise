@@ -67,6 +67,9 @@ export const adminAPI = {
   createFee: (data) => api.post('/admin/fees', data),
   updateFee: (id, data) => api.patch(`/admin/fees/${id}`, data),
   deleteFee: (id) => api.delete(`/admin/fees/${id}`),
+  // Select endpoints for dropdowns
+  getUniversitiesSelect: () => api.get('/admin/universities/select'),
+  getCoursesSelect: (universityId) => api.get(`/admin/courses/select/${universityId}`),
 };
 
 export const franchiseAPI = {

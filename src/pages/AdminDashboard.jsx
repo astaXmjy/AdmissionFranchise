@@ -400,7 +400,7 @@ const AdminDashboard = () => {
       );
     }
     if (location.pathname === '/admin/submit-form') {
-      return <StudentForm onSuccess={() => { loadStudents(); loadStatistics(); }} />;
+      return <StudentForm userRole="admin" onSuccess={() => { loadStudents(); loadStatistics(); }} />;
     }
     if (location.pathname === '/admin/franchises') {
       return (

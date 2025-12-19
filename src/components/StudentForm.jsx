@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Card, message, Row, Col, Select } from 'antd';
 import { User, Home, BookOpen, Phone, MapPin, Hash, GraduationCap } from 'lucide-react';
-import { franchiseAPI } from '../services/api';
+import { franchiseAPI, adminAPI } from '../services/api';
 
 const { Option } = Select;
 
-const StudentForm = ({ onSuccess }) => {
+const StudentForm = ({ onSuccess, userRole }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [universities, setUniversities] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loadingUniversities, setLoadingUniversities] = useState(false);
   const [loadingCourses, setLoadingCourses] = useState(false);
+
+  // Determine which API to use based on user role
+  const isAdmin = userRole === 'admin';
 
   // Fetch universities on component mount
   useEffect(() => {
@@ -21,7 +24,9 @@ const StudentForm = ({ onSuccess }) => {
   const fetchUniversities = async () => {
     setLoadingUniversities(true);
     try {
-      const response = await franchiseAPI.getUniversities();
+      const response = isAdmin
+        ? await adminAPI.getUniversitiesSelect()
+        : await franchiseAPI.getUniversities();
       setUniversities(response.data || []);
     } catch (error) {
       message.error('Failed to load universities');
@@ -37,7 +42,9 @@ const StudentForm = ({ onSuccess }) => {
     form.setFieldsValue({ course_id: undefined }); // Reset course selection
 
     try {
-      const response = await franchiseAPI.getCoursesByUniversity(universityId);
+      const response = isAdmin
+        ? await adminAPI.getCoursesSelect(universityId)
+        : await franchiseAPI.getCoursesByUniversity(universityId);
       setCourses(response.data || []);
     } catch (error) {
       message.error('Failed to load courses');
@@ -59,6 +66,8 @@ const StudentForm = ({ onSuccess }) => {
   const onFinish = async (values) => {
     setLoading(true);
     try {
+      // Use franchiseAPI for both admin and franchise for now
+      // Admin users will submit through franchise endpoint
       await franchiseAPI.createStudent(values);
       message.success('Student admission form submitted successfully!');
       form.resetFields();
