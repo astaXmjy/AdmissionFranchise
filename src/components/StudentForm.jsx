@@ -1,11 +1,60 @@
-import React, { useState } from 'react';
-import { Form, Input, Button, Card, message, Row, Col } from 'antd';
-import { User, Home, BookOpen, Phone, Mail, MapPin, Hash, GraduationCap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Form, Input, Button, Card, message, Row, Col, Select } from 'antd';
+import { User, Home, BookOpen, Phone, MapPin, Hash, GraduationCap } from 'lucide-react';
 import { franchiseAPI } from '../services/api';
+
+const { Option } = Select;
 
 const StudentForm = ({ onSuccess }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [universities, setUniversities] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [loadingUniversities, setLoadingUniversities] = useState(false);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+
+  // Fetch universities on component mount
+  useEffect(() => {
+    fetchUniversities();
+  }, []);
+
+  const fetchUniversities = async () => {
+    setLoadingUniversities(true);
+    try {
+      const response = await franchiseAPI.getUniversities();
+      setUniversities(response.data || []);
+    } catch (error) {
+      message.error('Failed to load universities');
+      console.error('Error fetching universities:', error);
+    } finally {
+      setLoadingUniversities(false);
+    }
+  };
+
+  const fetchCourses = async (universityId) => {
+    setLoadingCourses(true);
+    setCourses([]);
+    form.setFieldsValue({ course_id: undefined }); // Reset course selection
+
+    try {
+      const response = await franchiseAPI.getCoursesByUniversity(universityId);
+      setCourses(response.data || []);
+    } catch (error) {
+      message.error('Failed to load courses');
+      console.error('Error fetching courses:', error);
+    } finally {
+      setLoadingCourses(false);
+    }
+  };
+
+  const onUniversityChange = (universityId) => {
+    if (universityId) {
+      fetchCourses(universityId);
+    } else {
+      setCourses([]);
+      form.setFieldsValue({ course_id: undefined });
+    }
+  };
 
   const onFinish = async (values) => {
     setLoading(true);
@@ -13,9 +62,10 @@ const StudentForm = ({ onSuccess }) => {
       await franchiseAPI.createStudent(values);
       message.success('Student admission form submitted successfully!');
       form.resetFields();
+      setCourses([]); // Clear courses after submission
       if (onSuccess) onSuccess();
     } catch (error) {
-      message.error('Failed to submit form. Please try again.');
+      message.error(error.response?.data?.detail || 'Failed to submit form. Please try again.');
       console.error('Form submission error:', error);
     } finally {
       setLoading(false);
@@ -119,39 +169,64 @@ const StudentForm = ({ onSuccess }) => {
             </Col>
             <Col xs={24} sm={8}>
               <Form.Item
-                name="course_applied"
-                label="Course Applied For"
-                rules={[{ required: true, message: 'Please enter course applied for' }]}
+                name="university_id"
+                label="University"
+                rules={[{ required: true, message: 'Please select university' }]}
               >
-                <Input
-                  prefix={<GraduationCap size={16} />}
-                  placeholder="e.g., B.Tech, MBA"
+                <Select
+                  placeholder="Select university"
                   size="large"
-                />
+                  loading={loadingUniversities}
+                  onChange={onUniversityChange}
+                  showSearch
+                  optionFilterProp="children"
+                  filterOption={(input, option) =>
+                    option.children.toLowerCase().includes(input.toLowerCase())
+                  }
+                >
+                  {universities.map(univ => (
+                    <Option key={univ.id} value={univ.id}>
+                      {univ.name} {univ.code && `(${univ.code})`}
+                    </Option>
+                  ))}
+                </Select>
               </Form.Item>
             </Col>
             <Col xs={24} sm={8}>
               <Form.Item
-                name="branch_specialization"
-                label="Branch/Specialization"
+                name="course_id"
+                label="Course"
+                rules={[{ required: true, message: 'Please select course' }]}
               >
-                <Input
-                  prefix={<BookOpen size={16} />}
-                  placeholder="Optional"
+                <Select
+                  placeholder="Select course"
                   size="large"
-                />
+                  loading={loadingCourses}
+                  disabled={courses.length === 0}
+                  showSearch
+                  optionFilterProp="children"
+                  filterOption={(input, option) =>
+                    option.children.toLowerCase().includes(input.toLowerCase())
+                  }
+                >
+                  {courses.map(course => (
+                    <Option key={course.id} value={course.id}>
+                      {course.name} {course.code && `(${course.code})`}
+                    </Option>
+                  ))}
+                </Select>
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={16}>
             <Col xs={24}>
               <Form.Item
-                name="affiliating_university"
-                label="Affiliating University (if applicable)"
+                name="branch_specialization"
+                label="Branch/Specialization (Optional)"
               >
                 <Input
-                  prefix={<GraduationCap size={16} />}
-                  placeholder="Optional"
+                  prefix={<BookOpen size={16} />}
+                  placeholder="Enter branch or specialization"
                   size="large"
                 />
               </Form.Item>

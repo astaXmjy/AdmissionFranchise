@@ -62,6 +62,8 @@ export const franchiseAPI = {
     params,
     responseType: 'blob'
   }),
+  getUniversities: () => api.get('/franchise/universities/select'),
+  getCoursesByUniversity: (universityId) => api.get(`/franchise/courses/select/${universityId}`),
 };
 
 export default api;
