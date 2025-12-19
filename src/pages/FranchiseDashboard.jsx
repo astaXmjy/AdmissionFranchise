@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import StudentForm from '../components/StudentForm';
 import StatisticsCard from '../components/StatisticsCard';
 import { franchiseAPI } from '../services/api';
+import logoImage from '../assets/skilledge-logo.png';
 import '../App.css';
 
 const { Header, Content, Sider } = Layout;
@@ -142,7 +143,10 @@ const FranchiseDashboard = () => {
         <button className="header-menu-toggle" onClick={() => setMobileOpen(!mobileOpen)}>
           <MenuIcon size={24} />
         </button>
-        <h1 className="dashboard-title">Franchise Dashboard</h1>
+        <div className="header-logo-title">
+          <img src={logoImage} alt="Skilledge" className="navbar-logo" />
+          <h1 className="dashboard-title">Franchise Dashboard</h1>
+        </div>
         <Button type="text" icon={<LogOut size={20} />} onClick={handleLogout} className="logout-button">Logout</Button>
       </Header>
       <Layout>
