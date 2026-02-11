@@ -6,15 +6,15 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Ba
 const StatisticsCard = ({ stats, loading }) => {
   const pieData = [
     { name: 'Pending', value: stats?.pending || 0, color: '#ff8c00' },
-    { name: 'Confirmed', value: stats?.confirmed || 0, color: '#52c41a' },
-    { name: 'Rejected', value: stats?.rejected || 0, color: '#ff0080' },
+    { name: 'Approved', value: stats?.approved || 0, color: '#52c41a' },
+    { name: 'Failed', value: stats?.failed || 0, color: '#ff0080' },
   ];
 
   const barData = [
     { name: 'Total', value: stats?.total || 0, color: '#40e0d0' },
     { name: 'Pending', value: stats?.pending || 0, color: '#ff8c00' },
-    { name: 'Confirmed', value: stats?.confirmed || 0, color: '#52c41a' },
-    { name: 'Rejected', value: stats?.rejected || 0, color: '#ff0080' },
+    { name: 'Approved', value: stats?.approved || 0, color: '#52c41a' },
+    { name: 'Failed', value: stats?.failed || 0, color: '#ff0080' },
   ];
 
   return (
@@ -53,8 +53,8 @@ const StatisticsCard = ({ stats, loading }) => {
                 <CheckCircle size={32} />
               </div>
               <Statistic
-                title="Confirmed"
-                value={stats?.confirmed || 0}
+                title="Approved"
+                value={stats?.approved || 0}
                 valueStyle={{ color: '#52c41a', fontSize: '28px', fontWeight: '600' }}
               />
             </Card>
@@ -66,8 +66,8 @@ const StatisticsCard = ({ stats, loading }) => {
                 <XCircle size={32} />
               </div>
               <Statistic
-                title="Rejected"
-                value={stats?.rejected || 0}
+                title="Failed"
+                value={stats?.failed || 0}
                 valueStyle={{ color: '#ff0080', fontSize: '28px', fontWeight: '600' }}
               />
             </Card>

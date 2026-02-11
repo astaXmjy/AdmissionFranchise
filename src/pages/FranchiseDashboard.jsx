@@ -95,17 +95,17 @@ const FranchiseDashboard = () => {
 
   const getStatusBadge = (status) => {
     const map = {
-      pending: { className: 'status-pending', text: 'Pending' },
-      confirmed: { className: 'status-confirmed', text: 'Confirmed' },
-      rejected: { className: 'status-rejected', text: 'Rejected' },
+      PENDING: { className: 'status-pending', text: 'Pending' },
+      APPROVED: { className: 'status-confirmed', text: 'Approved' },
+      FAILED: { className: 'status-rejected', text: 'Failed' },
     };
-    const config = map[status] || map.pending;
+    const config = map[status] || map.PENDING;
     return <span className={`status-badge ${config.className}`}>{config.text}</span>;
   };
 
   const studentColumns = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
-    { title: 'Student Name', dataIndex: 'student_name', key: 'student_name', width: 150 },
+    { title: 'Student Name', key: 'student_name', width: 200, render: (_, record) => `${record.first_name}${record.middle_name ? ' ' + record.middle_name : ''} ${record.last_name}` },
     { title: 'Father Name', dataIndex: 'father_name', key: 'father_name', width: 150 },
     { title: 'University', dataIndex: 'university_name', key: 'university_name', width: 150 },
     { title: 'Course', dataIndex: 'course_name', key: 'course_name', width: 150 },

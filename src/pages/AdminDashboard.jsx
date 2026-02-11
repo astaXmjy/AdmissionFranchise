@@ -33,11 +33,17 @@ const AdminDashboard = () => {
   const [editingUniversity, setEditingUniversity] = useState(null);
   const [editingCourse, setEditingCourse] = useState(null);
   const [editingFee, setEditingFee] = useState(null);
+  const [editingFranchise, setEditingFranchise] = useState(null);
+  const [editFranchiseModal, setEditFranchiseModal] = useState(false);
+  const [approveModal, setApproveModal] = useState(false);
+  const [approvingStudentId, setApprovingStudentId] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [createForm] = Form.useForm();
+  const [franchiseForm] = Form.useForm();
   const [universityForm] = Form.useForm();
   const [courseForm] = Form.useForm();
   const [feeForm] = Form.useForm();
+  const [commissionForm] = Form.useForm();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -304,14 +310,102 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleEditFranchise = (franchise) => {
+    setEditingFranchise(franchise);
+    franchiseForm.setFieldsValue({
+      full_name: franchise.full_name,
+      address: franchise.address,
+      gst_number: franchise.gst_number,
+      pan_number: franchise.pan_number,
+      phone_number: franchise.phone_number,
+      email: franchise.email,
+    });
+    setEditFranchiseModal(true);
+  };
+
+  const handleUpdateFranchise = async (values) => {
+    try {
+      // Remove empty password so it doesn't get sent
+      if (!values.password) {
+        delete values.password;
+      }
+      await adminAPI.updateFranchise(editingFranchise.id, values);
+      message.success('Franchise updated successfully!');
+      setEditFranchiseModal(false);
+      setEditingFranchise(null);
+      franchiseForm.resetFields();
+      loadFranchises();
+      loadFranchiseStats();
+    } catch (error) {
+      message.error(error.response?.data?.detail || 'Failed to update franchise');
+    }
+  };
+
+  const handleDeleteFranchise = async (id) => {
+    try {
+      await adminAPI.deleteFranchise(id);
+      message.success('Franchise deleted successfully!');
+      loadFranchises();
+      loadFranchiseStats();
+    } catch (error) {
+      message.error(error.response?.data?.detail || 'Failed to delete franchise');
+    }
+  };
+
+  const handleToggleFranchiseStatus = async (id, currentStatus) => {
+    try {
+      await adminAPI.updateFranchise(id, { is_active: !currentStatus });
+      message.success('Franchise status updated!');
+      loadFranchises();
+      loadFranchiseStats();
+    } catch (error) {
+      message.error('Failed to update status');
+    }
+  };
+
   const handleStatusUpdate = async (studentId, newStatus) => {
     try {
-      await adminAPI.updateStudentStatus(studentId, newStatus);
+      await adminAPI.updateStudentStatus(studentId, { status: newStatus });
       message.success('Status updated successfully!');
       loadStudents();
       loadStatistics();
     } catch (error) {
       message.error('Failed to update status');
+    }
+  };
+
+  const handleApproveClick = (studentId) => {
+    setApprovingStudentId(studentId);
+    commissionForm.resetFields();
+    setApproveModal(true);
+  };
+
+  const handleApproveWithCommission = async (values) => {
+    try {
+      await adminAPI.updateStudentStatus(approvingStudentId, {
+        status: 'APPROVED',
+        commission_percentage: parseFloat(values.commission_percentage)
+      });
+      message.success('Student approved with commission set!');
+      setApproveModal(false);
+      setApprovingStudentId(null);
+      commissionForm.resetFields();
+      loadStudents();
+      loadStatistics();
+    } catch (error) {
+      message.error('Failed to approve student');
+    }
+  };
+
+  const handleUpdateCommission = async (studentId, commissionPercentage) => {
+    try {
+      await adminAPI.updateStudentCommission(studentId, {
+        commission_percentage: parseFloat(commissionPercentage)
+      });
+      message.success('Commission updated!');
+      loadStudents();
+    } catch (error) {
+      message.error('Failed to update commission');
     }
   };
 
@@ -339,35 +433,39 @@ const AdminDashboard = () => {
 
   const getStatusBadge = (status) => {
     const map = {
-      pending: { className: 'status-pending', text: 'Pending' },
-      confirmed: { className: 'status-confirmed', text: 'Confirmed' },
-      rejected: { className: 'status-rejected', text: 'Rejected' },
+      PENDING: { className: 'status-pending', text: 'Pending' },
+      APPROVED: { className: 'status-confirmed', text: 'Approved' },
+      FAILED: { className: 'status-rejected', text: 'Failed' },
     };
-    const config = map[status] || map.pending;
+    const config = map[status] || map.PENDING;
     return <span className={`status-badge ${config.className}`}>{config.text}</span>;
   };
 
   const studentColumns = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
-    { title: 'Student Name', dataIndex: 'student_name', key: 'student_name', width: 150 },
+    { title: 'Student Name', key: 'student_name', width: 180, render: (_, record) => `${record.first_name}${record.middle_name ? ' ' + record.middle_name : ''} ${record.last_name}` },
     { title: 'Father Name', dataIndex: 'father_name', key: 'father_name', width: 150 },
+    { title: 'Degree', dataIndex: 'degree_type', key: 'degree_type', width: 80, render: (val) => val ? <Tag>{val}</Tag> : '-' },
     { title: 'University', dataIndex: 'university_name', key: 'university_name', width: 150 },
     { title: 'Course', dataIndex: 'course_name', key: 'course_name', width: 150 },
     { title: 'Contact', dataIndex: 'contact_number', key: 'contact_number', width: 120 },
-    { title: 'Franchise', dataIndex: 'franchise_name', key: 'franchise_name', width: 150 },
-    { title: 'Status', dataIndex: 'status', key: 'status', width: 120, render: (status) => getStatusBadge(status) },
+    { title: 'Franchise', dataIndex: 'franchise_name', key: 'franchise_name', width: 130 },
+    { title: 'Total Fee', dataIndex: 'total_fee', key: 'total_fee', width: 100, render: (val) => val ? `₹${val}` : '-' },
+    { title: 'Commission %', dataIndex: 'commission_percentage', key: 'commission_percentage', width: 110, render: (val) => val ? `${val}%` : '-' },
+    { title: 'Commission', dataIndex: 'commission_amount', key: 'commission_amount', width: 110, render: (val) => val ? <Tag color="green">₹{val}</Tag> : '-' },
+    { title: 'Status', dataIndex: 'status', key: 'status', width: 100, render: (status) => getStatusBadge(status) },
     { title: 'Submitted', dataIndex: 'created_at', key: 'created_at', width: 110, render: (date) => dayjs(date).format('DD MMM YYYY') },
     {
       title: 'Action',
       key: 'action',
-      width: 120,
+      width: 140,
       render: (_, record) => (
         <Dropdown
           menu={{
             items: [
-              { key: 'confirmed', label: 'Confirm', onClick: () => handleStatusUpdate(record.id, 'confirmed') },
-              { key: 'rejected', label: 'Reject', onClick: () => handleStatusUpdate(record.id, 'rejected') },
-              { key: 'pending', label: 'Set Pending', onClick: () => handleStatusUpdate(record.id, 'pending') },
+              { key: 'APPROVED', label: 'Approve (with Commission)', onClick: () => handleApproveClick(record.id) },
+              { key: 'FAILED', label: 'Mark Failed', onClick: () => handleStatusUpdate(record.id, 'FAILED') },
+              { key: 'PENDING', label: 'Set Pending', onClick: () => handleStatusUpdate(record.id, 'PENDING') },
             ],
           }}
           placement="bottomRight"
@@ -381,12 +479,52 @@ const AdminDashboard = () => {
   const franchiseColumns = [
     { title: 'Franchise Name', dataIndex: 'full_name', key: 'full_name' },
     { title: 'Username', dataIndex: 'username', key: 'username' },
+    { title: 'Phone', dataIndex: 'phone_number', key: 'phone_number', render: (val) => val || '-' },
+    { title: 'Email', dataIndex: 'email', key: 'email', render: (val) => val || '-' },
     { title: 'Total', dataIndex: 'total_students', key: 'total_students', render: (val) => <Tag color="blue">{val}</Tag> },
     { title: 'Pending', dataIndex: 'pending', key: 'pending', render: (val) => <Tag color="orange">{val}</Tag> },
-    { title: 'Confirmed', dataIndex: 'confirmed', key: 'confirmed', render: (val) => <Tag color="green">{val}</Tag> },
-    { title: 'Rejected', dataIndex: 'rejected', key: 'rejected', render: (val) => <Tag color="red">{val}</Tag> },
-    { title: 'Status', dataIndex: 'is_active', key: 'is_active', render: (active) => <Tag color={active ? 'success' : 'error'}>{active ? 'Active' : 'Inactive'}</Tag> },
+    { title: 'Approved', dataIndex: 'approved', key: 'approved', render: (val) => <Tag color="green">{val}</Tag> },
+    { title: 'Failed', dataIndex: 'failed', key: 'failed', render: (val) => <Tag color="red">{val}</Tag> },
+    { title: 'Status', dataIndex: 'is_active', key: 'is_active', render: (active, record) => (
+      <Button
+        size="small"
+        type={active ? 'primary' : 'default'}
+        onClick={() => handleToggleFranchiseStatus(record.id, active)}
+      >
+        {active ? 'Active' : 'Inactive'}
+      </Button>
+    )},
     { title: 'Created', dataIndex: 'created_at', key: 'created_at', render: (date) => dayjs(date).format('DD MMM YYYY') },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 200,
+      render: (_, record) => (
+        <Space>
+          <Button
+            size="small"
+            icon={<Edit size={14} />}
+            onClick={() => handleEditFranchise(record)}
+          >
+            Edit
+          </Button>
+          <Button
+            danger
+            size="small"
+            icon={<Trash2 size={14} />}
+            onClick={() => {
+              Modal.confirm({
+                title: 'Delete Franchise',
+                content: `Are you sure you want to delete ${record.full_name}?`,
+                onOk: () => handleDeleteFranchise(record.id)
+              });
+            }}
+          >
+            Delete
+          </Button>
+        </Space>
+      )
+    }
   ];
 
   const renderContent = () => {
@@ -406,7 +544,7 @@ const AdminDashboard = () => {
     if (location.pathname === '/admin/franchises') {
       return (
         <Card title={`Franchises (${franchiseStats.length})`} extra={<Button type="primary" icon={<UserPlus size={18} />} onClick={() => setCreateFranchiseModal(true)}>Create Franchise</Button>}>
-          <Table columns={franchiseColumns} dataSource={franchiseStats} rowKey="id" loading={loading} scroll={{ x: 800 }} pagination={{ pageSize: 10 }} />
+          <Table columns={franchiseColumns} dataSource={franchiseStats} rowKey="id" loading={loading} scroll={{ x: 1400 }} pagination={{ pageSize: 10 }} />
         </Card>
       );
     }
@@ -590,7 +728,7 @@ const AdminDashboard = () => {
           </Space>
         </Card>
         <Card title={`All Submissions (${students.length})`} extra={<Button type="primary" icon={<Download size={18} />} onClick={handleExportCSV}>Export CSV</Button>}>
-          <Table columns={studentColumns} dataSource={students} rowKey="id" loading={loading} scroll={{ x: 1200 }} pagination={{ pageSize: 10 }} />
+          <Table columns={studentColumns} dataSource={students} rowKey="id" loading={loading} scroll={{ x: 1800 }} pagination={{ pageSize: 10 }} />
         </Card>
       </div>
     );
@@ -654,10 +792,109 @@ const AdminDashboard = () => {
           <Form.Item name="role" label="Role" initialValue="franchise" rules={[{ required: true, message: 'Please select role' }]}>
             <Select><Option value="franchise">Franchise</Option></Select>
           </Form.Item>
+          <Form.Item name="phone_number" label="Phone Number">
+            <Input placeholder="Enter phone number" />
+          </Form.Item>
+          <Form.Item name="email" label="Email">
+            <Input placeholder="Enter email" />
+          </Form.Item>
+          <Form.Item name="address" label="Address">
+            <Input.TextArea placeholder="Enter address" rows={2} />
+          </Form.Item>
+          <Form.Item name="gst_number" label="GST Number">
+            <Input placeholder="Enter GST number (15 characters)" maxLength={15} />
+          </Form.Item>
+          <Form.Item name="pan_number" label="PAN Number">
+            <Input placeholder="Enter PAN number (10 characters)" maxLength={10} />
+          </Form.Item>
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit">Create Franchise</Button>
               <Button onClick={() => setCreateFranchiseModal(false)}>Cancel</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Edit Franchise"
+        open={editFranchiseModal}
+        onCancel={() => {
+          setEditFranchiseModal(false);
+          setEditingFranchise(null);
+          franchiseForm.resetFields();
+        }}
+        footer={null}
+        width={600}
+      >
+        <Form form={franchiseForm} layout="vertical" onFinish={handleUpdateFranchise}>
+          <Form.Item name="full_name" label="Full Name" rules={[{ required: true, message: 'Please enter full name' }]}>
+            <Input placeholder="Enter full name" />
+          </Form.Item>
+          <Form.Item name="password" label="Password (leave blank to keep current)">
+            <Input.Password placeholder="Enter new password" />
+          </Form.Item>
+          <Form.Item name="phone_number" label="Phone Number">
+            <Input placeholder="Enter phone number" />
+          </Form.Item>
+          <Form.Item name="email" label="Email">
+            <Input placeholder="Enter email" />
+          </Form.Item>
+          <Form.Item name="address" label="Address">
+            <Input.TextArea placeholder="Enter address" rows={2} />
+          </Form.Item>
+          <Form.Item name="gst_number" label="GST Number">
+            <Input placeholder="Enter GST number (15 characters)" maxLength={15} />
+          </Form.Item>
+          <Form.Item name="pan_number" label="PAN Number">
+            <Input placeholder="Enter PAN number (10 characters)" maxLength={10} />
+          </Form.Item>
+          <Form.Item name="is_active" label="Status">
+            <Select>
+              <Option value={true}>Active</Option>
+              <Option value={false}>Inactive</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit">Update Franchise</Button>
+              <Button onClick={() => {
+                setEditFranchiseModal(false);
+                setEditingFranchise(null);
+                franchiseForm.resetFields();
+              }}>Cancel</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Approve Student - Set Commission"
+        open={approveModal}
+        onCancel={() => {
+          setApproveModal(false);
+          setApprovingStudentId(null);
+          commissionForm.resetFields();
+        }}
+        footer={null}
+        width={400}
+      >
+        <Form form={commissionForm} layout="vertical" onFinish={handleApproveWithCommission}>
+          <Form.Item
+            name="commission_percentage"
+            label="Commission Percentage (%)"
+            rules={[{ required: true, message: 'Please enter commission percentage' }]}
+          >
+            <Input type="number" placeholder="e.g., 15" min={0} max={100} suffix="%" />
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit">Approve & Set Commission</Button>
+              <Button onClick={() => {
+                setApproveModal(false);
+                setApprovingStudentId(null);
+                commissionForm.resetFields();
+              }}>Cancel</Button>
             </Space>
           </Form.Item>
         </Form>

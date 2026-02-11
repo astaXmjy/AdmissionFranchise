@@ -44,9 +44,12 @@ export const authAPI = {
 export const adminAPI = {
   createFranchise: (franchiseData) => api.post('/admin/franchises', franchiseData),
   getFranchises: () => api.get('/admin/franchises'),
+  updateFranchise: (id, data) => api.patch(`/admin/franchises/${id}`, data),
+  deleteFranchise: (id) => api.delete(`/admin/franchises/${id}`),
   getFranchisesStatistics: () => api.get('/admin/franchises/statistics'),
   getAllStudents: (params) => api.get('/admin/students', { params }),
-  updateStudentStatus: (studentId, status) => api.patch(`/admin/students/${studentId}/status`, { status }),
+  updateStudentStatus: (studentId, data) => api.patch(`/admin/students/${studentId}/status`, data),
+  updateStudentCommission: (studentId, data) => api.patch(`/admin/students/${studentId}/commission`, data),
   getStatistics: () => api.get('/admin/statistics'),
   exportStudentsCSV: (params) => api.get('/admin/students/csv', {
     params,
@@ -69,7 +72,7 @@ export const adminAPI = {
   deleteFee: (id) => api.delete(`/admin/fees/${id}`),
   // Select endpoints for dropdowns
   getUniversitiesSelect: () => api.get('/admin/universities/select'),
-  getCoursesSelect: (universityId) => api.get(`/admin/courses/select/${universityId}`),
+  getCoursesSelect: (universityId, degreeType) => api.get(`/admin/courses/select/${universityId}`, { params: degreeType ? { degree_type: degreeType } : {} }),
 };
 
 export const franchiseAPI = {
@@ -81,7 +84,7 @@ export const franchiseAPI = {
     responseType: 'blob'
   }),
   getUniversities: () => api.get('/franchise/universities/select'),
-  getCoursesByUniversity: (universityId) => api.get(`/franchise/courses/select/${universityId}`),
+  getCoursesByUniversity: (universityId, degreeType) => api.get(`/franchise/courses/select/${universityId}`, { params: degreeType ? { degree_type: degreeType } : {} }),
 };
 
 export default api;
