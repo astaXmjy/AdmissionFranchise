@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Card, Table, message, DatePicker, Space, Tag } from 'antd';
-import { FileText, Download, LogOut, Database, BarChart3, Menu as MenuIcon } from 'lucide-react';
+import { Layout, Menu, Button, Card, Table, message, DatePicker, Space, Tag, Modal, Descriptions } from 'antd';
+import { FileText, Download, LogOut, Database, BarChart3, Menu as MenuIcon, Eye } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
 import StudentForm from '../components/StudentForm';
@@ -19,6 +19,7 @@ const FranchiseDashboard = () => {
   const [statsLoading, setStatsLoading] = useState(false);
   const [dateRange, setDateRange] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [viewingStudent, setViewingStudent] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -109,9 +110,18 @@ const FranchiseDashboard = () => {
     { title: 'Father Name', dataIndex: 'father_name', key: 'father_name', width: 150 },
     { title: 'University', dataIndex: 'university_name', key: 'university_name', width: 150 },
     { title: 'Course', dataIndex: 'course_name', key: 'course_name', width: 150 },
+    { title: 'Specialization', dataIndex: 'branch_specialization', key: 'branch_specialization', width: 140, render: (val) => val || '-' },
     { title: 'Contact', dataIndex: 'contact_number', key: 'contact_number', width: 120 },
     { title: 'Status', dataIndex: 'status', key: 'status', width: 120, render: (status) => getStatusBadge(status) },
     { title: 'Submitted', dataIndex: 'created_at', key: 'created_at', width: 110, render: (date) => dayjs(date).format('DD MMM YYYY') },
+    {
+      title: 'Action',
+      key: 'action',
+      width: 80,
+      render: (_, record) => (
+        <Button size="small" icon={<Eye size={14} />} onClick={() => setViewingStudent(record)}>View</Button>
+      ),
+    },
   ];
 
   const renderContent = () => {
@@ -169,6 +179,78 @@ const FranchiseDashboard = () => {
         </Layout>
       </Layout>
       <Button className="mobile-sidebar-toggle" icon={<MenuIcon size={24} color="white" />} onClick={() => setMobileOpen(!mobileOpen)} />
+
+      {/* View Student Details Modal */}
+      <Modal
+        title="Student Details"
+        open={!!viewingStudent}
+        onCancel={() => setViewingStudent(null)}
+        footer={<Button onClick={() => setViewingStudent(null)}>Close</Button>}
+        width={800}
+      >
+        {viewingStudent && (
+          <>
+            <Descriptions bordered column={2} size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="Student Name" span={2}>
+                {`${viewingStudent.first_name}${viewingStudent.middle_name ? ' ' + viewingStudent.middle_name : ''} ${viewingStudent.last_name}`}
+              </Descriptions.Item>
+              <Descriptions.Item label="Date of Birth">{viewingStudent.dob}</Descriptions.Item>
+              <Descriptions.Item label="Email">{viewingStudent.email || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Father's Name">{viewingStudent.father_name}</Descriptions.Item>
+              <Descriptions.Item label="Mother's Name">{viewingStudent.mother_name}</Descriptions.Item>
+            </Descriptions>
+
+            <Descriptions title="Academic Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="Degree Type">{viewingStudent.degree_type || '-'}</Descriptions.Item>
+              <Descriptions.Item label="University">{viewingStudent.university_name || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Course">{viewingStudent.course_name || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Course Type">{viewingStudent.course_type || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Specialization">{viewingStudent.branch_specialization || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Skills">{viewingStudent.skills || '-'}</Descriptions.Item>
+              <Descriptions.Item label="APAAR ID">{viewingStudent.apaar_id || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Session">{viewingStudent.session || '-'}</Descriptions.Item>
+            </Descriptions>
+
+            <Descriptions title="10th Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="Board">{viewingStudent.tenth_board === 'Others' ? viewingStudent.tenth_board_other : viewingStudent.tenth_board || '-'}</Descriptions.Item>
+              <Descriptions.Item label="School">{viewingStudent.tenth_school || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Passing Year">{viewingStudent.tenth_passing_year || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Percentage">{viewingStudent.tenth_percentage || '-'}</Descriptions.Item>
+            </Descriptions>
+
+            <Descriptions title="12th Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="Board">{viewingStudent.twelfth_board === 'Others' ? viewingStudent.twelfth_board_other : viewingStudent.twelfth_board || '-'}</Descriptions.Item>
+              <Descriptions.Item label="School">{viewingStudent.twelfth_school || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Passing Year">{viewingStudent.twelfth_passing_year || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Percentage">{viewingStudent.twelfth_percentage || '-'}</Descriptions.Item>
+            </Descriptions>
+
+            <Descriptions title="Graduation Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="University">{viewingStudent.grad_university || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Degree">{viewingStudent.grad_degree || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Subject">{viewingStudent.grad_subject || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Passing Year">{viewingStudent.grad_passing_year || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Percentage">{viewingStudent.grad_percentage || '-'}</Descriptions.Item>
+            </Descriptions>
+
+            <Descriptions title="Contact & Address" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="Contact">{viewingStudent.contact_number}</Descriptions.Item>
+              <Descriptions.Item label="Aadhar">{viewingStudent.aadhar_number}</Descriptions.Item>
+              <Descriptions.Item label="Street/Locality" span={2}>{viewingStudent.street_locality}</Descriptions.Item>
+              <Descriptions.Item label="City">{viewingStudent.city}</Descriptions.Item>
+              <Descriptions.Item label="District">{viewingStudent.district || '-'}</Descriptions.Item>
+              <Descriptions.Item label="State">{viewingStudent.state}</Descriptions.Item>
+              <Descriptions.Item label="Pincode">{viewingStudent.pincode}</Descriptions.Item>
+            </Descriptions>
+
+            <Descriptions title="Fee & Status" bordered column={2} size="small">
+              <Descriptions.Item label="Total Fee">{viewingStudent.total_fee ? `₹${viewingStudent.total_fee}` : '-'}</Descriptions.Item>
+              <Descriptions.Item label="Status">{viewingStudent.status}</Descriptions.Item>
+              <Descriptions.Item label="Submitted">{dayjs(viewingStudent.created_at).format('DD MMM YYYY, hh:mm A')}</Descriptions.Item>
+            </Descriptions>
+          </>
+        )}
+      </Modal>
     </Layout>
   );
 };

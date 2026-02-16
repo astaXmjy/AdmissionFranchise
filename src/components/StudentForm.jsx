@@ -13,6 +13,8 @@ const StudentForm = ({ onSuccess, userRole }) => {
   const [loadingUniversities, setLoadingUniversities] = useState(false);
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [degreeType, setDegreeType] = useState(null);
+  const [selectedCourse, setSelectedCourse] = useState(null); // full course object with variants & eligible_education
+  const [selectedVariantId, setSelectedVariantId] = useState(null);
 
   const isAdmin = userRole === 'admin';
 
@@ -37,7 +39,9 @@ const StudentForm = ({ onSuccess, userRole }) => {
   const fetchCourses = async (universityId, selectedDegreeType) => {
     setLoadingCourses(true);
     setCourses([]);
-    form.setFieldsValue({ course_id: undefined });
+    setSelectedCourse(null);
+    setSelectedVariantId(null);
+    form.setFieldsValue({ course_id: undefined, course_variant_id: undefined });
 
     try {
       const response = isAdmin
@@ -52,34 +56,62 @@ const StudentForm = ({ onSuccess, userRole }) => {
   };
 
   const onUniversityChange = (universityId) => {
+    setSelectedCourse(null);
+    setSelectedVariantId(null);
+    form.setFieldsValue({ course_id: undefined, course_variant_id: undefined });
     if (universityId && degreeType) {
       fetchCourses(universityId, degreeType);
     } else {
       setCourses([]);
-      form.setFieldsValue({ course_id: undefined });
     }
   };
 
   const onDegreeTypeChange = (value) => {
     setDegreeType(value);
-    // Reset courses and re-fetch if university is selected
     setCourses([]);
-    form.setFieldsValue({ course_id: undefined });
+    setSelectedCourse(null);
+    setSelectedVariantId(null);
+    form.setFieldsValue({ course_id: undefined, course_variant_id: undefined });
     const universityId = form.getFieldValue('university_id');
     if (universityId && value) {
       fetchCourses(universityId, value);
     }
   };
 
+  const onCourseChange = (courseId) => {
+    const course = courses.find(c => c.id === courseId);
+    setSelectedCourse(course || null);
+    setSelectedVariantId(null);
+    form.setFieldsValue({ course_variant_id: undefined });
+  };
+
+  const onVariantChange = (variantId) => {
+    setSelectedVariantId(variantId);
+  };
+
+  // Determine which education sections to show based on course's eligible_education (comma-separated)
+  const eligibleEducationList = selectedCourse?.eligible_education
+    ? selectedCourse.eligible_education.split(',').map(e => e.trim())
+    : [];
+  const showTenth = eligibleEducationList.some(e => ['Class 10', 'Class 12', 'UG', 'PG'].includes(e));
+  const showTwelfth = eligibleEducationList.some(e => ['Class 12', 'UG', 'PG'].includes(e));
+  const showGraduation = eligibleEducationList.some(e => ['UG', 'PG'].includes(e));
+
+  // Get active variants for the selected course
+  const courseVariants = selectedCourse?.variants?.filter(v => v.is_active !== false) || [];
+
   const onFinish = async (values) => {
     setLoading(true);
     try {
-      // Combine skills array + custom skill into comma-separated string
       let skillsList = (values.skills || []).filter(s => s !== 'Others');
       if (values.skills_other) {
         skillsList.push(values.skills_other);
       }
-      const { skills_other, ...rest } = values;
+      const { skills_other, branch_specialization_other, ...rest } = values;
+      // If specialization is "Others", use the custom typed value
+      if (rest.branch_specialization === 'Others' && branch_specialization_other) {
+        rest.branch_specialization = branch_specialization_other;
+      }
       const payload = {
         ...rest,
         skills: skillsList.length > 0 ? skillsList.join(', ') : null,
@@ -90,6 +122,8 @@ const StudentForm = ({ onSuccess, userRole }) => {
       form.resetFields();
       setCourses([]);
       setDegreeType(null);
+      setSelectedCourse(null);
+      setSelectedVariantId(null);
       if (onSuccess) onSuccess();
     } catch (error) {
       message.error(error.response?.data?.detail || 'Failed to submit form. Please try again.');
@@ -101,6 +135,7 @@ const StudentForm = ({ onSuccess, userRole }) => {
   const tenthBoardValue = Form.useWatch('tenth_board', form);
   const twelfthBoardValue = Form.useWatch('twelfth_board', form);
   const skillsValue = Form.useWatch('skills', form) || [];
+  const specializationValue = Form.useWatch('branch_specialization', form);
 
   return (
     <Card
@@ -192,6 +227,23 @@ const StudentForm = ({ onSuccess, userRole }) => {
                 <Input prefix={<Hash size={16} />} placeholder="Enter 12-digit Aadhar number" size="large" />
               </Form.Item>
             </Col>
+            <Col xs={24} sm={8}>
+              <Form.Item
+                name="apaar_id"
+                label="APAAR ID"
+              >
+                <Input prefix={<Hash size={16} />} placeholder="Enter APAAR ID" size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Form.Item
+                name="session"
+                label="Session"
+                rules={[{ required: true, message: 'Please enter session' }]}
+              >
+                <Input placeholder="e.g., 2025-2026" size="large" />
+              </Form.Item>
+            </Col>
           </Row>
         </div>
 
@@ -239,7 +291,8 @@ const StudentForm = ({ onSuccess, userRole }) => {
                 <Select placeholder="Select degree type" size="large" onChange={onDegreeTypeChange}>
                   <Option value="UG">UG (Undergraduate)</Option>
                   <Option value="PG">PG (Postgraduate)</Option>
-                  <Option value="Diploma">Diploma</Option>
+                  <Option value="Diploma/Certificate">Diploma/Certificate</Option>
+                  <Option value="Class">Class</Option>
                 </Select>
               </Form.Item>
             </Col>
@@ -279,6 +332,7 @@ const StudentForm = ({ onSuccess, userRole }) => {
                   size="large"
                   loading={loadingCourses}
                   disabled={courses.length === 0}
+                  onChange={onCourseChange}
                   showSearch
                   optionFilterProp="children"
                   filterOption={(input, option) =>
@@ -295,12 +349,46 @@ const StudentForm = ({ onSuccess, userRole }) => {
             </Col>
           </Row>
           <Row gutter={16}>
-            <Col xs={24} sm={12}>
-              <Form.Item name="branch_specialization" label="Branch/Specialization (Optional)">
-                <Input prefix={<BookOpen size={16} />} placeholder="Enter branch or specialization" size="large" />
+            <Col xs={24} sm={8}>
+              <Form.Item
+                name="course_variant_id"
+                label="Course Type"
+                rules={[{ required: true, message: 'Please select course type' }]}
+              >
+                <Select
+                  placeholder={selectedCourse ? "Select course type" : "Select course first"}
+                  size="large"
+                  disabled={courseVariants.length === 0}
+                  onChange={onVariantChange}
+                >
+                  {courseVariants.map(v => (
+                    <Option key={v.id} value={v.id}>
+                      {v.course_type}
+                    </Option>
+                  ))}
+                </Select>
               </Form.Item>
             </Col>
-            <Col xs={24} sm={12}>
+            <Col xs={24} sm={8}>
+              <Form.Item name="branch_specialization" label="Branch/Specialization (Optional)">
+                <Select placeholder="Select specialization" size="large" allowClear>
+                  <Option value="NA">NA</Option>
+                  <Option value="Others">Others</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            {specializationValue === 'Others' && (
+              <Col xs={24} sm={8}>
+                <Form.Item
+                  name="branch_specialization_other"
+                  label="Specify Specialization"
+                  rules={[{ required: true, message: 'Please specify specialization' }]}
+                >
+                  <Input prefix={<BookOpen size={16} />} placeholder="Enter specialization" size="large" />
+                </Form.Item>
+              </Col>
+            )}
+            <Col xs={24} sm={8}>
               <Form.Item name="skills" label="Skills (Optional)">
                 <Select
                   mode="multiple"
@@ -352,7 +440,7 @@ const StudentForm = ({ onSuccess, userRole }) => {
           </Row>
           {skillsValue.includes('Others') && (
             <Row gutter={16}>
-              <Col xs={24} sm={12} offset={12}>
+              <Col xs={24} sm={12}>
                 <Form.Item
                   name="skills_other"
                   label="Other Skill"
@@ -363,10 +451,15 @@ const StudentForm = ({ onSuccess, userRole }) => {
               </Col>
             </Row>
           )}
+          {selectedCourse && eligibleEducationList.length > 0 && (
+            <div style={{ padding: '8px 12px', background: '#f0f5ff', borderRadius: '6px', marginTop: '8px' }}>
+              <strong>Eligible Education:</strong> {eligibleEducationList.join(', ')} — Please fill the required education details below.
+            </div>
+          )}
         </div>
 
-        {/* 10th Details — shown for ALL degree types */}
-        {degreeType && (
+        {/* 10th Details — shown when eligible_education requires Class 10 or above */}
+        {showTenth && (
           <div className="form-section">
             <h3>
               <BookOpen size={20} style={{ marginRight: '8px' }} />
@@ -430,8 +523,8 @@ const StudentForm = ({ onSuccess, userRole }) => {
           </div>
         )}
 
-        {/* 12th Details — shown for UG and PG */}
-        {(degreeType === 'UG' || degreeType === 'PG') && (
+        {/* 12th Details — shown when eligible_education requires Class 12 or above */}
+        {showTwelfth && (
           <div className="form-section">
             <h3>
               <BookOpen size={20} style={{ marginRight: '8px' }} />
@@ -495,8 +588,8 @@ const StudentForm = ({ onSuccess, userRole }) => {
           </div>
         )}
 
-        {/* Graduation Details — shown for PG only */}
-        {degreeType === 'PG' && (
+        {/* Graduation Details — shown when eligible_education requires UG or PG */}
+        {showGraduation && (
           <div className="form-section">
             <h3>
               <GraduationCap size={20} style={{ marginRight: '8px' }} />
@@ -572,7 +665,7 @@ const StudentForm = ({ onSuccess, userRole }) => {
             </Col>
           </Row>
           <Row gutter={16}>
-            <Col xs={24} sm={8}>
+            <Col xs={24} sm={6}>
               <Form.Item
                 name="city"
                 label="City"
@@ -581,7 +674,15 @@ const StudentForm = ({ onSuccess, userRole }) => {
                 <Input prefix={<MapPin size={16} />} placeholder="Enter city" size="large" />
               </Form.Item>
             </Col>
-            <Col xs={24} sm={8}>
+            <Col xs={24} sm={6}>
+              <Form.Item
+                name="district"
+                label="District"
+              >
+                <Input prefix={<MapPin size={16} />} placeholder="Enter district" size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={6}>
               <Form.Item
                 name="state"
                 label="State"
@@ -590,7 +691,7 @@ const StudentForm = ({ onSuccess, userRole }) => {
                 <Input prefix={<MapPin size={16} />} placeholder="Enter state" size="large" />
               </Form.Item>
             </Col>
-            <Col xs={24} sm={8}>
+            <Col xs={24} sm={6}>
               <Form.Item
                 name="pincode"
                 label="Pincode"

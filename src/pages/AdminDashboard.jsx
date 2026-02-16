@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Card, message, DatePicker, Space, Tag, Modal, Form, Input, Select, Table, Dropdown } from 'antd';
-import { Users, Download, LogOut, UserPlus, Database, FileText, BarChart3, Menu as MenuIcon, GraduationCap, Plus, Edit, Trash2, BookOpen } from 'lucide-react';
+import { Layout, Menu, Button, Card, message, DatePicker, Space, Tag, Modal, Form, Input, Select, Table, Dropdown, Descriptions } from 'antd';
+import { Users, Download, LogOut, UserPlus, Database, FileText, BarChart3, Menu as MenuIcon, GraduationCap, Plus, Edit, Trash2, BookOpen, Eye } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
 import StudentForm from '../components/StudentForm';
@@ -35,9 +35,11 @@ const AdminDashboard = () => {
   const [editingFee, setEditingFee] = useState(null);
   const [editingFranchise, setEditingFranchise] = useState(null);
   const [editFranchiseModal, setEditFranchiseModal] = useState(false);
+  const [selectedCourseForFee, setSelectedCourseForFee] = useState(null);
   const [approveModal, setApproveModal] = useState(false);
   const [approvingStudentId, setApprovingStudentId] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [viewingStudent, setViewingStudent] = useState(null);
   const [createForm] = Form.useForm();
   const [franchiseForm] = Form.useForm();
   const [universityForm] = Form.useForm();
@@ -160,7 +162,11 @@ const AdminDashboard = () => {
     setEditingCourse(course);
     courseForm.setFieldsValue({
       ...course,
-      duration_years: course.duration_years.toString()
+      duration_years: course.duration_years.toString(),
+      eligible_education: course.eligible_education ? course.eligible_education.split(',') : undefined,
+      course_types: course.variants
+        ? course.variants.filter(v => v.is_active).map(v => v.course_type)
+        : [],
     });
     setCreateCourseModal(true);
   };
@@ -208,6 +214,7 @@ const AdminDashboard = () => {
       }
       setCreateFeeModal(false);
       setEditingFee(null);
+      setSelectedCourseForFee(null);
       feeForm.resetFields();
       loadFees();
     } catch (error) {
@@ -217,7 +224,13 @@ const AdminDashboard = () => {
 
   const handleEditFee = (fee) => {
     setEditingFee(fee);
-    feeForm.setFieldsValue(fee);
+    // Determine the course id from the variant info
+    const courseId = fee.course_variant?.course?.id || fee.course_variant?.course_id || null;
+    setSelectedCourseForFee(courseId);
+    feeForm.setFieldsValue({
+      ...fee,
+      course_variant_id: fee.course_variant_id || fee.course_variant?.id,
+    });
     setCreateFeeModal(true);
   };
 
@@ -448,6 +461,7 @@ const AdminDashboard = () => {
     { title: 'Degree', dataIndex: 'degree_type', key: 'degree_type', width: 80, render: (val) => val ? <Tag>{val}</Tag> : '-' },
     { title: 'University', dataIndex: 'university_name', key: 'university_name', width: 150 },
     { title: 'Course', dataIndex: 'course_name', key: 'course_name', width: 150 },
+    { title: 'Specialization', dataIndex: 'branch_specialization', key: 'branch_specialization', width: 140, render: (val) => val || '-' },
     { title: 'Contact', dataIndex: 'contact_number', key: 'contact_number', width: 120 },
     { title: 'Franchise', dataIndex: 'franchise_name', key: 'franchise_name', width: 130 },
     { title: 'Total Fee', dataIndex: 'total_fee', key: 'total_fee', width: 100, render: (val) => val ? `₹${val}` : '-' },
@@ -458,20 +472,23 @@ const AdminDashboard = () => {
     {
       title: 'Action',
       key: 'action',
-      width: 140,
+      width: 200,
       render: (_, record) => (
-        <Dropdown
-          menu={{
-            items: [
-              { key: 'APPROVED', label: 'Approve (with Commission)', onClick: () => handleApproveClick(record.id) },
-              { key: 'FAILED', label: 'Mark Failed', onClick: () => handleStatusUpdate(record.id, 'FAILED') },
-              { key: 'PENDING', label: 'Set Pending', onClick: () => handleStatusUpdate(record.id, 'PENDING') },
-            ],
-          }}
-          placement="bottomRight"
-        >
-          <Button size="small">Change Status</Button>
-        </Dropdown>
+        <Space>
+          <Button size="small" icon={<Eye size={14} />} onClick={() => setViewingStudent(record)}>View</Button>
+          <Dropdown
+            menu={{
+              items: [
+                { key: 'APPROVED', label: 'Approve (with Commission)', onClick: () => handleApproveClick(record.id) },
+                { key: 'FAILED', label: 'Mark Failed', onClick: () => handleStatusUpdate(record.id, 'FAILED') },
+                { key: 'PENDING', label: 'Set Pending', onClick: () => handleStatusUpdate(record.id, 'PENDING') },
+              ],
+            }}
+            placement="bottomRight"
+          >
+            <Button size="small">Status</Button>
+          </Dropdown>
+        </Space>
       ),
     },
   ];
@@ -611,6 +628,13 @@ const AdminDashboard = () => {
         { title: 'University', key: 'university', render: (_, record) => record.university?.name || 'N/A', width: 200 },
         { title: 'Duration', dataIndex: 'duration_years', key: 'duration_years', render: (years) => `${years} years`, width: 100 },
         { title: 'Type', dataIndex: 'degree_type', key: 'degree_type', width: 150 },
+        { title: 'Eligible Education', dataIndex: 'eligible_education', key: 'eligible_education', width: 200, render: (val) => val ? val.split(',').map(v => <Tag color="purple" key={v}>{v.trim()}</Tag>) : '-' },
+        { title: 'Types', key: 'variants', width: 200, render: (_, record) => {
+          if (!record.variants || record.variants.length === 0) return '-';
+          return record.variants.filter(v => v.is_active).map(v => (
+            <Tag key={v.id} color="blue">{v.course_type}</Tag>
+          ));
+        }},
         { title: 'Status', dataIndex: 'is_active', key: 'is_active', width: 120, render: (active, record) => (
           <Button
             size="small"
@@ -669,8 +693,14 @@ const AdminDashboard = () => {
     }
     if (location.pathname === '/admin/fees') {
       const feeColumns = [
-        { title: 'Course', key: 'course', render: (_, record) => record.course?.name || 'N/A', width: 200 },
-        { title: 'University', key: 'university', render: (_, record) => record.course?.university?.name || 'N/A', width: 200 },
+        { title: 'Course', key: 'course', width: 250, render: (_, record) => {
+          const courseName = record.course_variant?.course?.name || record.course?.name || 'N/A';
+          const courseType = record.course_variant?.course_type;
+          return courseType ? `${courseName} (${courseType})` : courseName;
+        }},
+        { title: 'University', key: 'university', width: 200, render: (_, record) => {
+          return record.course_variant?.course?.university?.name || record.course?.university?.name || 'N/A';
+        }},
         { title: 'Tuition Fee', dataIndex: 'tuition_fee', key: 'tuition_fee', render: (fee) => `₹${fee}`, width: 120 },
         { title: 'Registration', dataIndex: 'registration_fee', key: 'registration_fee', render: (fee) => `₹${fee}`, width: 120 },
         { title: 'Exam (Yearly)', dataIndex: 'exam_fee_yearly', key: 'exam_fee_yearly', render: (fee) => `₹${fee}`, width: 120 },
@@ -709,7 +739,7 @@ const AdminDashboard = () => {
         }
       ];
       return (
-        <Card title={`Fee Structures (${fees.length})`} extra={<Button type="primary" icon={<Plus size={18} />} onClick={() => { setEditingFee(null); feeForm.resetFields(); setCreateFeeModal(true); }}>Add Fee Structure</Button>}>
+        <Card title={`Fee Structures (${fees.length})`} extra={<Button type="primary" icon={<Plus size={18} />} onClick={() => { setEditingFee(null); setSelectedCourseForFee(null); feeForm.resetFields(); setCreateFeeModal(true); }}>Add Fee Structure</Button>}>
           <Table columns={feeColumns} dataSource={fees} rowKey="id" loading={loading} scroll={{ x: 1200 }} pagination={{ pageSize: 10 }} />
         </Card>
       );
@@ -900,6 +930,81 @@ const AdminDashboard = () => {
         </Form>
       </Modal>
 
+      {/* View Student Details Modal */}
+      <Modal
+        title="Student Details"
+        open={!!viewingStudent}
+        onCancel={() => setViewingStudent(null)}
+        footer={<Button onClick={() => setViewingStudent(null)}>Close</Button>}
+        width={800}
+      >
+        {viewingStudent && (
+          <>
+            <Descriptions bordered column={2} size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="Student Name" span={2}>
+                {`${viewingStudent.first_name}${viewingStudent.middle_name ? ' ' + viewingStudent.middle_name : ''} ${viewingStudent.last_name}`}
+              </Descriptions.Item>
+              <Descriptions.Item label="Date of Birth">{viewingStudent.dob}</Descriptions.Item>
+              <Descriptions.Item label="Email">{viewingStudent.email || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Father's Name">{viewingStudent.father_name}</Descriptions.Item>
+              <Descriptions.Item label="Mother's Name">{viewingStudent.mother_name}</Descriptions.Item>
+            </Descriptions>
+
+            <Descriptions title="Academic Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="Degree Type">{viewingStudent.degree_type || '-'}</Descriptions.Item>
+              <Descriptions.Item label="University">{viewingStudent.university_name || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Course">{viewingStudent.course_name || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Course Type">{viewingStudent.course_type || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Specialization">{viewingStudent.branch_specialization || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Skills">{viewingStudent.skills || '-'}</Descriptions.Item>
+              <Descriptions.Item label="APAAR ID">{viewingStudent.apaar_id || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Session">{viewingStudent.session || '-'}</Descriptions.Item>
+            </Descriptions>
+
+            <Descriptions title="10th Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="Board">{viewingStudent.tenth_board === 'Others' ? viewingStudent.tenth_board_other : viewingStudent.tenth_board || '-'}</Descriptions.Item>
+              <Descriptions.Item label="School">{viewingStudent.tenth_school || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Passing Year">{viewingStudent.tenth_passing_year || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Percentage">{viewingStudent.tenth_percentage || '-'}</Descriptions.Item>
+            </Descriptions>
+
+            <Descriptions title="12th Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="Board">{viewingStudent.twelfth_board === 'Others' ? viewingStudent.twelfth_board_other : viewingStudent.twelfth_board || '-'}</Descriptions.Item>
+              <Descriptions.Item label="School">{viewingStudent.twelfth_school || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Passing Year">{viewingStudent.twelfth_passing_year || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Percentage">{viewingStudent.twelfth_percentage || '-'}</Descriptions.Item>
+            </Descriptions>
+
+            <Descriptions title="Graduation Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="University">{viewingStudent.grad_university || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Degree">{viewingStudent.grad_degree || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Subject">{viewingStudent.grad_subject || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Passing Year">{viewingStudent.grad_passing_year || '-'}</Descriptions.Item>
+              <Descriptions.Item label="Percentage">{viewingStudent.grad_percentage || '-'}</Descriptions.Item>
+            </Descriptions>
+
+            <Descriptions title="Contact & Address" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+              <Descriptions.Item label="Contact">{viewingStudent.contact_number}</Descriptions.Item>
+              <Descriptions.Item label="Aadhar">{viewingStudent.aadhar_number}</Descriptions.Item>
+              <Descriptions.Item label="Street/Locality" span={2}>{viewingStudent.street_locality}</Descriptions.Item>
+              <Descriptions.Item label="City">{viewingStudent.city}</Descriptions.Item>
+              <Descriptions.Item label="District">{viewingStudent.district || '-'}</Descriptions.Item>
+              <Descriptions.Item label="State">{viewingStudent.state}</Descriptions.Item>
+              <Descriptions.Item label="Pincode">{viewingStudent.pincode}</Descriptions.Item>
+            </Descriptions>
+
+            <Descriptions title="Fee & Commission" bordered column={2} size="small">
+              <Descriptions.Item label="Total Fee">{viewingStudent.total_fee ? `₹${viewingStudent.total_fee}` : '-'}</Descriptions.Item>
+              <Descriptions.Item label="Commission %">{viewingStudent.commission_percentage ? `${viewingStudent.commission_percentage}%` : '-'}</Descriptions.Item>
+              <Descriptions.Item label="Commission Amount">{viewingStudent.commission_amount ? `₹${viewingStudent.commission_amount}` : '-'}</Descriptions.Item>
+              <Descriptions.Item label="Status">{viewingStudent.status}</Descriptions.Item>
+              <Descriptions.Item label="Franchise">{viewingStudent.franchise_name}</Descriptions.Item>
+              <Descriptions.Item label="Submitted">{dayjs(viewingStudent.created_at).format('DD MMM YYYY, hh:mm A')}</Descriptions.Item>
+            </Descriptions>
+          </>
+        )}
+      </Modal>
+
       <Modal
         title={editingUniversity ? "Edit University" : "Add New University"}
         open={createUniversityModal}
@@ -973,10 +1078,27 @@ const AdminDashboard = () => {
           </Form.Item>
           <Form.Item name="degree_type" label="Degree Type" rules={[{ required: true, message: 'Please select degree type' }]}>
             <Select placeholder="Select degree type">
-              <Option value="Undergraduate">Undergraduate</Option>
-              <Option value="Postgraduate">Postgraduate</Option>
-              <Option value="Diploma">Diploma</Option>
-              <Option value="Certificate">Certificate</Option>
+              <Option value="Undergraduate">Undergraduate (UG)</Option>
+              <Option value="Postgraduate">Postgraduate (PG)</Option>
+              <Option value="Diploma/Certificate">Diploma/Certificate</Option>
+              <Option value="Class">Class</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="eligible_education" label="Eligible Education" rules={[{ required: true, message: 'Please select at least one eligible education' }]}>
+            <Select mode="multiple" placeholder="Select eligible education">
+              <Option value="Class 8">Class 8</Option>
+              <Option value="Class 10">Class 10</Option>
+              <Option value="Class 12">Class 12</Option>
+              <Option value="UG">UG</Option>
+              <Option value="PG">PG</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="course_types" label="Course Types" rules={[{ required: true, message: 'Please select at least one course type' }]}>
+            <Select mode="multiple" placeholder="Select course types">
+              <Option value="Regular">Regular</Option>
+              <Option value="Private">Private</Option>
+              <Option value="Online">Online</Option>
+              <Option value="Distance">Distance</Option>
             </Select>
           </Form.Item>
           <Form.Item name="description" label="Description">
@@ -1009,15 +1131,33 @@ const AdminDashboard = () => {
         onCancel={() => {
           setCreateFeeModal(false);
           setEditingFee(null);
+          setSelectedCourseForFee(null);
           feeForm.resetFields();
         }}
         footer={null}
         width={600}
       >
         <Form form={feeForm} layout="vertical" onFinish={handleCreateFee}>
-          <Form.Item name="course_id" label="Course" rules={[{ required: true, message: 'Please select course' }]}>
-            <Select placeholder="Select course" showSearch optionFilterProp="children">
+          <Form.Item label="Course" required>
+            <Select
+              placeholder="Select course"
+              showSearch
+              optionFilterProp="children"
+              value={selectedCourseForFee}
+              onChange={(val) => {
+                setSelectedCourseForFee(val);
+                feeForm.setFieldValue('course_variant_id', undefined);
+              }}
+            >
               {courses.map(c => <Option key={c.id} value={c.id}>{c.name} - {c.university?.name}</Option>)}
+            </Select>
+          </Form.Item>
+          <Form.Item name="course_variant_id" label="Course Type" rules={[{ required: true, message: 'Please select course type' }]}>
+            <Select placeholder={selectedCourseForFee ? "Select course type" : "Please select a course first"} disabled={!selectedCourseForFee}>
+              {selectedCourseForFee && courses
+                .find(c => c.id === selectedCourseForFee)?.variants
+                ?.filter(v => v.is_active)
+                .map(v => <Option key={v.id} value={v.id}>{v.course_type}</Option>)}
             </Select>
           </Form.Item>
           <Form.Item name="tuition_fee" label="Tuition Fee" rules={[{ required: true, message: 'Please enter tuition fee' }]}>
@@ -1055,6 +1195,7 @@ const AdminDashboard = () => {
               <Button onClick={() => {
                 setCreateFeeModal(false);
                 setEditingFee(null);
+                setSelectedCourseForFee(null);
                 feeForm.resetFields();
               }}>Cancel</Button>
             </Space>
