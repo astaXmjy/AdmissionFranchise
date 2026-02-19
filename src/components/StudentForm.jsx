@@ -14,6 +14,7 @@ const StudentForm = ({ onSuccess, userRole }) => {
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [degreeType, setDegreeType] = useState(null);
   const [selectedCourse, setSelectedCourse] = useState(null); // full course object with variants & eligible_education
+  const [selectedBranch, setSelectedBranch] = useState(null); // selected branch object
   const [selectedVariantId, setSelectedVariantId] = useState(null);
 
   const isAdmin = userRole === 'admin';
@@ -40,8 +41,9 @@ const StudentForm = ({ onSuccess, userRole }) => {
     setLoadingCourses(true);
     setCourses([]);
     setSelectedCourse(null);
+    setSelectedBranch(null);
     setSelectedVariantId(null);
-    form.setFieldsValue({ course_id: undefined, course_variant_id: undefined });
+    form.setFieldsValue({ course_id: undefined, branch_id: undefined, course_variant_id: undefined });
 
     try {
       const response = isAdmin
@@ -57,8 +59,9 @@ const StudentForm = ({ onSuccess, userRole }) => {
 
   const onUniversityChange = (universityId) => {
     setSelectedCourse(null);
+    setSelectedBranch(null);
     setSelectedVariantId(null);
-    form.setFieldsValue({ course_id: undefined, course_variant_id: undefined });
+    form.setFieldsValue({ course_id: undefined, branch_id: undefined, course_variant_id: undefined });
     if (universityId && degreeType) {
       fetchCourses(universityId, degreeType);
     } else {
@@ -70,8 +73,9 @@ const StudentForm = ({ onSuccess, userRole }) => {
     setDegreeType(value);
     setCourses([]);
     setSelectedCourse(null);
+    setSelectedBranch(null);
     setSelectedVariantId(null);
-    form.setFieldsValue({ course_id: undefined, course_variant_id: undefined });
+    form.setFieldsValue({ course_id: undefined, branch_id: undefined, course_variant_id: undefined });
     const universityId = form.getFieldValue('university_id');
     if (universityId && value) {
       fetchCourses(universityId, value);
@@ -81,6 +85,14 @@ const StudentForm = ({ onSuccess, userRole }) => {
   const onCourseChange = (courseId) => {
     const course = courses.find(c => c.id === courseId);
     setSelectedCourse(course || null);
+    setSelectedBranch(null);
+    setSelectedVariantId(null);
+    form.setFieldsValue({ branch_id: undefined, course_variant_id: undefined });
+  };
+
+  const onBranchChange = (branchId) => {
+    const branch = selectedCourse?.branches?.find(b => b.id === branchId);
+    setSelectedBranch(branch || null);
     setSelectedVariantId(null);
     form.setFieldsValue({ course_variant_id: undefined });
   };
@@ -97,8 +109,12 @@ const StudentForm = ({ onSuccess, userRole }) => {
   const showTwelfth = eligibleEducationList.some(e => ['Class 12', 'UG', 'PG'].includes(e));
   const showGraduation = eligibleEducationList.some(e => ['UG', 'PG'].includes(e));
 
-  // Get active variants for the selected course
-  const courseVariants = selectedCourse?.variants?.filter(v => v.is_active !== false) || [];
+  // Course has branches defined?
+  const courseBranches = selectedCourse?.branches?.filter(b => b.is_active !== false) || [];
+  const hasBranches = courseBranches.length > 0;
+
+  // Course types always come from course-level variants (branch_id = null)
+  const courseVariants = selectedCourse?.variants?.filter(v => v.is_active !== false && !v.branch_id) || [];
 
   const onFinish = async (values) => {
     setLoading(true);
@@ -123,6 +139,7 @@ const StudentForm = ({ onSuccess, userRole }) => {
       setCourses([]);
       setDegreeType(null);
       setSelectedCourse(null);
+      setSelectedBranch(null);
       setSelectedVariantId(null);
       if (onSuccess) onSuccess();
     } catch (error) {
@@ -348,6 +365,30 @@ const StudentForm = ({ onSuccess, userRole }) => {
               </Form.Item>
             </Col>
           </Row>
+          {hasBranches && (
+            <Row gutter={16}>
+              <Col xs={24} sm={8}>
+                <Form.Item
+                  name="branch_id"
+                  label="Branch"
+                  rules={[{ required: true, message: 'Please select branch' }]}
+                >
+                  <Select
+                    placeholder="Select branch"
+                    size="large"
+                    disabled={!selectedCourse}
+                    onChange={onBranchChange}
+                    showSearch
+                    optionFilterProp="children"
+                  >
+                    {courseBranches.map(b => (
+                      <Option key={b.id} value={b.id}>{b.name}</Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+          )}
           <Row gutter={16}>
             <Col xs={24} sm={8}>
               <Form.Item
@@ -356,7 +397,7 @@ const StudentForm = ({ onSuccess, userRole }) => {
                 rules={[{ required: true, message: 'Please select course type' }]}
               >
                 <Select
-                  placeholder={selectedCourse ? "Select course type" : "Select course first"}
+                  placeholder={!selectedCourse ? "Select course first" : "Select course type"}
                   size="large"
                   disabled={courseVariants.length === 0}
                   onChange={onVariantChange}
@@ -370,7 +411,7 @@ const StudentForm = ({ onSuccess, userRole }) => {
               </Form.Item>
             </Col>
             <Col xs={24} sm={8}>
-              <Form.Item name="branch_specialization" label="Branch/Specialization (Optional)">
+              <Form.Item name="branch_specialization" label="Specialization (Optional)">
                 <Select placeholder="Select specialization" size="large" allowClear>
                   <Option value="NA">NA</Option>
                   <Option value="Others">Others</Option>
@@ -433,6 +474,11 @@ const StudentForm = ({ onSuccess, userRole }) => {
                   <Option value="Leadership">Leadership</Option>
                   <Option value="Team Management">Team Management</Option>
                   <Option value="Problem Solving">Problem Solving</Option>
+                  <Option value="Economics">Economics</Option>
+                  <Option value="English Literature">English Literature</Option>
+                  <Option value="Hindi Literature">Hindi Literature</Option>
+                  <Option value="Political Science">Political Science</Option>
+                  <Option value="Sociology">Sociology</Option>
                   <Option value="Others">Others</Option>
                 </Select>
               </Form.Item>

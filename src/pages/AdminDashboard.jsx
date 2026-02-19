@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Card, message, DatePicker, Space, Tag, Modal, Form, Input, Select, Table, Dropdown, Descriptions } from 'antd';
+import { Layout, Menu, Button, Card, message, DatePicker, Space, Tag, Modal, Form, Input, Select, Table, Dropdown, Descriptions, Popconfirm } from 'antd';
 import { Users, Download, LogOut, UserPlus, Database, FileText, BarChart3, Menu as MenuIcon, GraduationCap, Plus, Edit, Trash2, BookOpen, Eye } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -34,6 +34,11 @@ const AdminDashboard = () => {
   const [editingCourse, setEditingCourse] = useState(null);
   const [editingFee, setEditingFee] = useState(null);
   const [editingFranchise, setEditingFranchise] = useState(null);
+  const [branchModal, setBranchModal] = useState(false);
+  const [branchCourse, setBranchCourse] = useState(null); // course for which branches are managed
+  const [branches, setBranches] = useState([]);
+  const [createBranchModal, setCreateBranchModal] = useState(false);
+  const [editingBranch, setEditingBranch] = useState(null);
   const [editFranchiseModal, setEditFranchiseModal] = useState(false);
   const [selectedCourseForFee, setSelectedCourseForFee] = useState(null);
   const [approveModal, setApproveModal] = useState(false);
@@ -46,6 +51,7 @@ const AdminDashboard = () => {
   const [courseForm] = Form.useForm();
   const [feeForm] = Form.useForm();
   const [commissionForm] = Form.useForm();
+  const [branchForm] = Form.useForm();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -186,6 +192,73 @@ const AdminDashboard = () => {
       await adminAPI.updateCourse(id, { is_active: !currentStatus });
       message.success('Course status updated!');
       loadCourses();
+    } catch (error) {
+      message.error('Failed to update status');
+    }
+  };
+
+  const openBranchManager = async (course) => {
+    setBranchCourse(course);
+    setBranchModal(true);
+    try {
+      const response = await adminAPI.getBranches(course.id);
+      setBranches(response.data);
+    } catch (error) {
+      message.error('Failed to load branches');
+    }
+  };
+
+  const loadBranches = async (courseId) => {
+    try {
+      const response = await adminAPI.getBranches(courseId);
+      setBranches(response.data);
+    } catch (error) {
+      message.error('Failed to load branches');
+    }
+  };
+
+  const handleCreateBranch = async (values) => {
+    try {
+      if (editingBranch) {
+        await adminAPI.updateBranch(editingBranch.id, values);
+        message.success('Branch updated successfully!');
+      } else {
+        await adminAPI.createBranch({ ...values, course_id: branchCourse.id });
+        message.success('Branch created successfully!');
+      }
+      setCreateBranchModal(false);
+      setEditingBranch(null);
+      branchForm.resetFields();
+      loadBranches(branchCourse.id);
+    } catch (error) {
+      message.error(error.response?.data?.detail || 'Failed to save branch');
+    }
+  };
+
+  const handleEditBranch = (branch) => {
+    setEditingBranch(branch);
+    branchForm.setFieldsValue({
+      name: branch.name,
+      is_active: branch.is_active,
+    });
+    setCreateBranchModal(true);
+  };
+
+  const handleDeleteBranch = async (id) => {
+    try {
+      await adminAPI.deleteBranch(id);
+      message.success('Branch deleted successfully!');
+      loadBranches(branchCourse.id);
+    } catch (error) {
+      message.error(error.response?.data?.detail || 'Failed to delete branch');
+    }
+  };
+
+  const handleToggleBranchStatus = async (id, currentStatus) => {
+    try {
+      await adminAPI.updateBranch(id, { is_active: !currentStatus });
+      message.success('Branch status updated!');
+      loadBranches(branchCourse.id);
     } catch (error) {
       message.error('Failed to update status');
     }
@@ -629,6 +702,14 @@ const AdminDashboard = () => {
         { title: 'Duration', dataIndex: 'duration_years', key: 'duration_years', render: (years) => `${years} years`, width: 100 },
         { title: 'Type', dataIndex: 'degree_type', key: 'degree_type', width: 150 },
         { title: 'Eligible Education', dataIndex: 'eligible_education', key: 'eligible_education', width: 200, render: (val) => val ? val.split(',').map(v => <Tag color="purple" key={v}>{v.trim()}</Tag>) : '-' },
+        { title: 'Branches', key: 'branches', width: 130, render: (_, record) => {
+          const count = record.branches ? record.branches.filter(b => b.is_active).length : 0;
+          return (
+            <Tag color={count > 0 ? 'purple' : 'default'} style={{ cursor: 'pointer' }} onClick={() => openBranchManager(record)}>
+              {count} branch{count !== 1 ? 'es' : ''}
+            </Tag>
+          );
+        }},
         { title: 'Types', key: 'variants', width: 200, render: (_, record) => {
           if (!record.variants || record.variants.length === 0) return '-';
           return record.variants.filter(v => v.is_active).map(v => (
@@ -1146,18 +1227,43 @@ const AdminDashboard = () => {
               value={selectedCourseForFee}
               onChange={(val) => {
                 setSelectedCourseForFee(val);
+                feeForm.setFieldValue('branch_id_for_fee', undefined);
                 feeForm.setFieldValue('course_variant_id', undefined);
               }}
             >
               {courses.map(c => <Option key={c.id} value={c.id}>{c.name} - {c.university?.name}</Option>)}
             </Select>
           </Form.Item>
+          {/* If selected course has branches, show branch selector before course type */}
+          {selectedCourseForFee && courses.find(c => c.id === selectedCourseForFee)?.branches?.length > 0 && (
+            <Form.Item name="branch_id_for_fee" label="Branch">
+              <Select
+                placeholder="Select branch (leave empty for course-level fee)"
+                allowClear
+                onChange={() => feeForm.setFieldValue('course_variant_id', undefined)}
+              >
+                {courses.find(c => c.id === selectedCourseForFee)?.branches
+                  ?.filter(b => b.is_active)
+                  .map(b => <Option key={b.id} value={b.id}>{b.name}</Option>)}
+              </Select>
+            </Form.Item>
+          )}
           <Form.Item name="course_variant_id" label="Course Type" rules={[{ required: true, message: 'Please select course type' }]}>
             <Select placeholder={selectedCourseForFee ? "Select course type" : "Please select a course first"} disabled={!selectedCourseForFee}>
-              {selectedCourseForFee && courses
-                .find(c => c.id === selectedCourseForFee)?.variants
-                ?.filter(v => v.is_active)
-                .map(v => <Option key={v.id} value={v.id}>{v.course_type}</Option>)}
+              {(() => {
+                const course = courses.find(c => c.id === selectedCourseForFee);
+                if (!course) return null;
+                const branchId = feeForm.getFieldValue('branch_id_for_fee');
+                if (branchId) {
+                  // Show branch-level variants
+                  return course.branches?.find(b => b.id === branchId)?.variants
+                    ?.filter(v => v.is_active)
+                    .map(v => <Option key={v.id} value={v.id}>{v.course_type}</Option>);
+                }
+                // Show course-level variants (no branch)
+                return course.variants?.filter(v => v.is_active && !v.branch_id)
+                  .map(v => <Option key={v.id} value={v.id}>{v.course_type}</Option>);
+              })()}
             </Select>
           </Form.Item>
           <Form.Item name="tuition_fee" label="Tuition Fee" rules={[{ required: true, message: 'Please enter tuition fee' }]}>
@@ -1198,6 +1304,79 @@ const AdminDashboard = () => {
                 setSelectedCourseForFee(null);
                 feeForm.resetFields();
               }}>Cancel</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+      {/* Branch Manager Modal */}
+      <Modal
+        title={branchCourse ? `Branches — ${branchCourse.name}` : 'Branches'}
+        open={branchModal}
+        onCancel={() => { setBranchModal(false); setBranchCourse(null); setBranches([]); }}
+        footer={null}
+        width={750}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <Button type="primary" icon={<Plus size={16} />} onClick={() => { setEditingBranch(null); branchForm.resetFields(); setCreateBranchModal(true); }}>
+            Add Branch
+          </Button>
+        </div>
+        <Table
+          dataSource={branches}
+          rowKey="id"
+          pagination={false}
+          columns={[
+            { title: 'Branch Name', dataIndex: 'name', key: 'name' },
+            { title: 'Course Types', key: 'variants', render: (_, record) => {
+              if (!record.variants || record.variants.length === 0) return <span style={{ color: '#aaa' }}>None</span>;
+              return record.variants.filter(v => v.is_active).map(v => <Tag key={v.id} color="blue">{v.course_type}</Tag>);
+            }},
+            { title: 'Status', dataIndex: 'is_active', key: 'is_active', render: (active, record) => (
+              <Button size="small" type={active ? 'primary' : 'default'} onClick={() => handleToggleBranchStatus(record.id, active)}>
+                {active ? 'Active' : 'Inactive'}
+              </Button>
+            )},
+            { title: 'Actions', key: 'actions', render: (_, record) => (
+              <Space>
+                <Button size="small" icon={<Edit size={14} />} onClick={() => handleEditBranch(record)}>Edit</Button>
+                <Popconfirm
+                  title="Delete Branch"
+                  description={`Delete branch "${record.name}"?`}
+                  onConfirm={() => handleDeleteBranch(record.id)}
+                  okText="Yes, Delete"
+                  cancelText="Cancel"
+                  okButtonProps={{ danger: true }}
+                >
+                  <Button danger size="small" icon={<Trash2 size={14} />}>Delete</Button>
+                </Popconfirm>
+              </Space>
+            )}
+          ]}
+        />
+      </Modal>
+
+      {/* Create / Edit Branch Modal */}
+      <Modal
+        title={editingBranch ? 'Edit Branch' : 'Add Branch'}
+        open={createBranchModal}
+        onCancel={() => { setCreateBranchModal(false); setEditingBranch(null); branchForm.resetFields(); }}
+        footer={null}
+        width={500}
+      >
+        <Form form={branchForm} layout="vertical" onFinish={handleCreateBranch}>
+          <Form.Item name="name" label="Branch Name" rules={[{ required: true, message: 'Please enter branch name' }]}>
+            <Input placeholder="e.g., Maths, Science, Computer Science" />
+          </Form.Item>
+          <Form.Item name="is_active" label="Status" initialValue={true}>
+            <Select>
+              <Option value={true}>Active</Option>
+              <Option value={false}>Inactive</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit">{editingBranch ? 'Update Branch' : 'Add Branch'}</Button>
+              <Button onClick={() => { setCreateBranchModal(false); setEditingBranch(null); branchForm.resetFields(); }}>Cancel</Button>
             </Space>
           </Form.Item>
         </Form>

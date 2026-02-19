@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://admission-franchise-back.vercel.app';
+// const API_BASE_URL = 'https://admission-franchise-back.vercel.app';
+const API_BASE_URL ='http://127.0.0.1:8000';
 
 // Create axios instance
 const api = axios.create({
@@ -70,6 +71,11 @@ export const adminAPI = {
   createFee: (data) => api.post('/admin/fees', data),
   updateFee: (id, data) => api.patch(`/admin/fees/${id}`, data),
   deleteFee: (id) => api.delete(`/admin/fees/${id}`),
+  // Branch management
+  getBranches: (courseId) => api.get('/admin/branches', { params: { course_id: courseId } }),
+  createBranch: (data) => api.post('/admin/branches', data),
+  updateBranch: (id, data) => api.patch(`/admin/branches/${id}`, data),
+  deleteBranch: (id) => api.delete(`/admin/branches/${id}`),
   // Select endpoints for dropdowns
   getUniversitiesSelect: () => api.get('/admin/universities/select'),
   getCoursesSelect: (universityId, degreeType) => api.get(`/admin/courses/select/${universityId}`, { params: degreeType ? { degree_type: degreeType } : {} }),
@@ -85,6 +91,7 @@ export const franchiseAPI = {
   }),
   getUniversities: () => api.get('/franchise/universities/select'),
   getCoursesByUniversity: (universityId, degreeType) => api.get(`/franchise/courses/select/${universityId}`, { params: degreeType ? { degree_type: degreeType } : {} }),
+  getBranchesByCourse: (courseId) => api.get('/franchise/branches/select', { params: { course_id: courseId } }),
 };
 
 export default api;

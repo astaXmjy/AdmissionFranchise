@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Card, message, Space } from 'antd';
+import { Form, Input, Button, Card, message } from 'antd';
 import { User, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
@@ -109,19 +109,6 @@ const Login = () => {
           </Form.Item>
         </Form>
 
-        <div className="login-demo-info">
-          <Space direction="vertical" size="small">
-            <div>
-              <strong>Demo Credentials:</strong>
-            </div>
-            <div>
-              Admin: username: <code>admin</code>, password: <code>admin123</code>
-            </div>
-            <div>
-              (Create franchise accounts through admin panel)
-            </div>
-          </Space>
-        </div>
       </Card>
     </div>
   );
