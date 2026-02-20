@@ -10,6 +10,7 @@ const StudentForm = ({ onSuccess, userRole }) => {
   const [loading, setLoading] = useState(false);
   const [universities, setUniversities] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [franchises, setFranchises] = useState([]);
   const [loadingUniversities, setLoadingUniversities] = useState(false);
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [degreeType, setDegreeType] = useState(null);
@@ -21,6 +22,9 @@ const StudentForm = ({ onSuccess, userRole }) => {
 
   useEffect(() => {
     fetchUniversities();
+    if (isAdmin) {
+      adminAPI.getFranchises().then(res => setFranchises(res.data || [])).catch(() => {});
+    }
   }, []);
 
   const fetchUniversities = async () => {
@@ -133,7 +137,11 @@ const StudentForm = ({ onSuccess, userRole }) => {
         skills: skillsList.length > 0 ? skillsList.join(', ') : null,
         dob: values.dob ? values.dob.format('YYYY-MM-DD') : undefined,
       };
-      await franchiseAPI.createStudent(payload);
+      if (isAdmin) {
+        await adminAPI.createStudent(payload);
+      } else {
+        await franchiseAPI.createStudent(payload);
+      }
       message.success('Student admission form submitted successfully!');
       form.resetFields();
       setCourses([]);
@@ -170,6 +178,31 @@ const StudentForm = ({ onSuccess, userRole }) => {
         onFinish={onFinish}
         autoComplete="off"
       >
+        {/* Franchise Selector — admin only */}
+        {isAdmin && (
+          <div className="form-section">
+            <h3>
+              <User size={20} style={{ marginRight: '8px' }} />
+              Assign to Franchise
+            </h3>
+            <Row gutter={16}>
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  name="franchise_id"
+                  label="Franchise"
+                  rules={[{ required: true, message: 'Please select a franchise' }]}
+                >
+                  <Select placeholder="Select franchise" size="large" showSearch optionFilterProp="children">
+                    {franchises.map(f => (
+                      <Option key={f.id} value={f.id}>{f.full_name} ({f.username})</Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+            </Row>
+          </div>
+        )}
+
         {/* Student Details Section */}
         <div className="form-section">
           <h3>

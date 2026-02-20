@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://admission-franchise-back.vercel.app';
-// const API_BASE_URL ='http://127.0.0.1:8000';
+// const API_BASE_URL = 'https://admission-franchise-back.vercel.app';
+const API_BASE_URL ='http://127.0.0.1:8000';
 
 // Create axios instance
 const api = axios.create({
@@ -79,6 +79,8 @@ export const adminAPI = {
   // Select endpoints for dropdowns
   getUniversitiesSelect: () => api.get('/admin/universities/select'),
   getCoursesSelect: (universityId, degreeType) => api.get(`/admin/courses/select/${universityId}`, { params: degreeType ? { degree_type: degreeType } : {} }),
+  // Student creation by admin
+  createStudent: (data) => api.post('/admin/students', data),
 };
 
 export const franchiseAPI = {

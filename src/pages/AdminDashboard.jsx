@@ -405,6 +405,7 @@ const AdminDashboard = () => {
       pan_number: franchise.pan_number,
       phone_number: franchise.phone_number,
       email: franchise.email,
+      is_active: franchise.is_active,
     });
     setEditFranchiseModal(true);
   };
@@ -598,20 +599,22 @@ const AdminDashboard = () => {
           >
             Edit
           </Button>
-          <Button
-            danger
-            size="small"
-            icon={<Trash2 size={14} />}
-            onClick={() => {
-              Modal.confirm({
-                title: 'Delete Franchise',
-                content: `Are you sure you want to delete ${record.full_name}?`,
-                onOk: () => handleDeleteFranchise(record.id)
-              });
-            }}
+          <Popconfirm
+            title="Delete Franchise"
+            description={`Delete "${record.full_name}"? This will also permanently delete all associated students.`}
+            onConfirm={() => handleDeleteFranchise(record.id)}
+            okText="Yes, Delete All"
+            cancelText="Cancel"
+            okButtonProps={{ danger: true }}
           >
-            Delete
-          </Button>
+            <Button
+              danger
+              size="small"
+              icon={<Trash2 size={14} />}
+            >
+              Delete
+            </Button>
+          </Popconfirm>
         </Space>
       )
     }
@@ -670,20 +673,16 @@ const AdminDashboard = () => {
               >
                 Edit
               </Button>
-              <Button
-                danger
-                size="small"
-                icon={<Trash2 size={14} />}
-                onClick={() => {
-                  Modal.confirm({
-                    title: 'Delete University',
-                    content: `Are you sure you want to delete ${record.name}?`,
-                    onOk: () => handleDeleteUniversity(record.id)
-                  });
-                }}
+              <Popconfirm
+                title="Delete University"
+                description={`Are you sure you want to delete ${record.name}?`}
+                onConfirm={() => handleDeleteUniversity(record.id)}
+                okText="Yes, Delete"
+                cancelText="Cancel"
+                okButtonProps={{ danger: true }}
               >
-                Delete
-              </Button>
+                <Button danger size="small" icon={<Trash2 size={14} />}>Delete</Button>
+              </Popconfirm>
             </Space>
           )
         }
@@ -738,20 +737,16 @@ const AdminDashboard = () => {
               >
                 Edit
               </Button>
-              <Button
-                danger
-                size="small"
-                icon={<Trash2 size={14} />}
-                onClick={() => {
-                  Modal.confirm({
-                    title: 'Delete Course',
-                    content: `Are you sure you want to delete ${record.name}?`,
-                    onOk: () => handleDeleteCourse(record.id)
-                  });
-                }}
+              <Popconfirm
+                title="Delete Course"
+                description={`Are you sure you want to delete ${record.name}?`}
+                onConfirm={() => handleDeleteCourse(record.id)}
+                okText="Yes, Delete"
+                cancelText="Cancel"
+                okButtonProps={{ danger: true }}
               >
-                Delete
-              </Button>
+                <Button danger size="small" icon={<Trash2 size={14} />}>Delete</Button>
+              </Popconfirm>
             </Space>
           )
         }
@@ -801,20 +796,16 @@ const AdminDashboard = () => {
               >
                 Edit
               </Button>
-              <Button
-                danger
-                size="small"
-                icon={<Trash2 size={14} />}
-                onClick={() => {
-                  Modal.confirm({
-                    title: 'Delete Fee',
-                    content: 'Are you sure you want to delete this fee structure?',
-                    onOk: () => handleDeleteFee(record.id)
-                  });
-                }}
+              <Popconfirm
+                title="Delete Fee"
+                description="Are you sure you want to delete this fee structure?"
+                onConfirm={() => handleDeleteFee(record.id)}
+                okText="Yes, Delete"
+                cancelText="Cancel"
+                okButtonProps={{ danger: true }}
               >
-                Delete
-              </Button>
+                <Button danger size="small" icon={<Trash2 size={14} />}>Delete</Button>
+              </Popconfirm>
             </Space>
           )
         }
