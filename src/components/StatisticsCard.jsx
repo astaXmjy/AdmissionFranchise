@@ -3,7 +3,12 @@ import { Card, Statistic, Row, Col } from 'antd';
 import { TrendingUp, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
-const StatisticsCard = ({ stats, loading }) => {
+const StatisticsCard = ({ stats, loading, onCardClick }) => {
+  const clickable = typeof onCardClick === 'function';
+  const cardStyle = clickable
+    ? { cursor: 'pointer', transition: 'box-shadow 0.2s', userSelect: 'none' }
+    : {};
+  const handleClick = (status) => { if (clickable) onCardClick(status); };
   const pieData = [
     { name: 'Pending', value: stats?.pending || 0, color: '#ff8c00' },
     { name: 'Approved', value: stats?.approved || 0, color: '#52c41a' },
@@ -22,7 +27,7 @@ const StatisticsCard = ({ stats, loading }) => {
       <Card loading={loading} className="statistics-card">
         <Row gutter={[16, 16]}>
           <Col xs={24} sm={12} md={6}>
-            <Card className="stat-item total">
+            <Card className="stat-item total" style={cardStyle} onClick={() => handleClick(null)}>
               <div className="stat-icon">
                 <TrendingUp size={32} />
               </div>
@@ -35,7 +40,7 @@ const StatisticsCard = ({ stats, loading }) => {
           </Col>
 
           <Col xs={24} sm={12} md={6}>
-            <Card className="stat-item pending">
+            <Card className="stat-item pending" style={cardStyle} onClick={() => handleClick('PENDING')}>
               <div className="stat-icon">
                 <Clock size={32} />
               </div>
@@ -48,7 +53,7 @@ const StatisticsCard = ({ stats, loading }) => {
           </Col>
 
           <Col xs={24} sm={12} md={6}>
-            <Card className="stat-item confirmed">
+            <Card className="stat-item confirmed" style={cardStyle} onClick={() => handleClick('APPROVED')}>
               <div className="stat-icon">
                 <CheckCircle size={32} />
               </div>
@@ -61,7 +66,7 @@ const StatisticsCard = ({ stats, loading }) => {
           </Col>
 
           <Col xs={24} sm={12} md={6}>
-            <Card className="stat-item rejected">
+            <Card className="stat-item rejected" style={cardStyle} onClick={() => handleClick('FAILED')}>
               <div className="stat-icon">
                 <XCircle size={32} />
               </div>

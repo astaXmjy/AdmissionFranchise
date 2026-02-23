@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Card, Table, message, DatePicker, Space, Tag, Modal, Descriptions } from 'antd';
-import { FileText, Download, LogOut, Database, BarChart3, Menu as MenuIcon, Eye } from 'lucide-react';
+import { Layout, Menu, Button, Card, Table, message, DatePicker, Space, Tag, Select, Modal, Descriptions } from 'antd';
+import { FileText, Download, LogOut, Database, BarChart3, Menu as MenuIcon, Eye, Edit } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
 import StudentForm from '../components/StudentForm';
@@ -18,10 +18,24 @@ const FranchiseDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [statsLoading, setStatsLoading] = useState(false);
   const [dateRange, setDateRange] = useState(null);
+  const [statusFilter, setStatusFilter] = useState(null);
+  const { Option } = Select;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [viewingStudent, setViewingStudent] = useState(null);
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [franchiseName, setFranchiseName] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setFranchiseName(payload.full_name || payload.username || payload.sub || '');
+      }
+    } catch {}
+  }, []);
 
   const menuItems = [
     { key: 'statistics', icon: <BarChart3 size={18} />, label: 'Statistics' },
@@ -45,6 +59,7 @@ const FranchiseDashboard = () => {
     setLoading(true);
     try {
       const params = {};
+      if (statusFilter) params.status = statusFilter;
       if (dateRange && dateRange[0] && dateRange[1]) {
         params.start_date = dateRange[0].toISOString();
         params.end_date = dateRange[1].toISOString();
@@ -66,7 +81,7 @@ const FranchiseDashboard = () => {
     if (location.pathname === '/franchise/my-submissions') {
       loadStudents();
     }
-  }, [location.pathname, dateRange]);
+  }, [location.pathname, dateRange, statusFilter]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -110,8 +125,10 @@ const FranchiseDashboard = () => {
     { title: 'Father Name', dataIndex: 'father_name', key: 'father_name', width: 150 },
     { title: 'University', dataIndex: 'university_name', key: 'university_name', width: 150 },
     { title: 'Course', dataIndex: 'course_name', key: 'course_name', width: 150 },
+    { title: 'Branch', dataIndex: 'branch_name', key: 'branch_name', width: 130, render: (val) => val || '-' },
     { title: 'Specialization', dataIndex: 'branch_specialization', key: 'branch_specialization', width: 140, render: (val) => val || '-' },
     { title: 'Contact', dataIndex: 'contact_number', key: 'contact_number', width: 120 },
+    { title: 'Total Fee', dataIndex: 'total_fee', key: 'total_fee', width: 110, render: (val) => val ? `₹${val}` : '-' },
     { title: 'Status', dataIndex: 'status', key: 'status', width: 120, render: (status) => getStatusBadge(status) },
     { title: 'Submitted', dataIndex: 'created_at', key: 'created_at', width: 110, render: (date) => dayjs(date).format('DD MMM YYYY') },
     {
@@ -119,14 +136,28 @@ const FranchiseDashboard = () => {
       key: 'action',
       width: 80,
       render: (_, record) => (
-        <Button size="small" icon={<Eye size={14} />} onClick={() => setViewingStudent(record)}>View</Button>
+        <Space>
+          <Button size="small" icon={<Eye size={14} />} onClick={() => setViewingStudent(record)}>View</Button>
+          {record.status === 'PENDING' && (
+            <Button size="small" icon={<Edit size={14} />} onClick={() => setEditingStudent(record)}>Edit</Button>
+          )}
+        </Space>
       ),
     },
   ];
 
   const renderContent = () => {
     if (location.pathname === '/franchise/statistics' || location.pathname === '/franchise') {
-      return <StatisticsCard stats={statistics} loading={statsLoading} />;
+      return (
+        <StatisticsCard
+          stats={statistics}
+          loading={statsLoading}
+          onCardClick={(status) => {
+            setStatusFilter(status);
+            navigate('/franchise/my-submissions');
+          }}
+        />
+      );
     }
     if (location.pathname === '/franchise/submit-form') {
       return <StudentForm userRole="franchise" onSuccess={() => { loadStudents(); loadStatistics(); }} />;
@@ -135,13 +166,19 @@ const FranchiseDashboard = () => {
       <div>
         <Card className="filters-container">
           <Space wrap>
+            <span>Filter by status:</span>
+            <Select placeholder="All statuses" style={{ width: 150 }} value={statusFilter} onChange={setStatusFilter} allowClear>
+              <Option value="PENDING">Pending</Option>
+              <Option value="APPROVED">Approved</Option>
+              <Option value="FAILED">Failed</Option>
+            </Select>
             <span>Filter by date:</span>
             <RangePicker value={dateRange} onChange={setDateRange} format="YYYY-MM-DD" />
-            <Button onClick={() => setDateRange(null)}>Clear Filters</Button>
+            <Button onClick={() => { setStatusFilter(null); setDateRange(null); }}>Clear Filters</Button>
           </Space>
         </Card>
         <Card title={`My Submissions (${students.length})`} extra={<Button type="primary" icon={<Download size={18} />} onClick={handleExportCSV}>Export CSV</Button>}>
-          <Table columns={studentColumns} dataSource={students} rowKey="id" loading={loading} scroll={{ x: 1000 }} pagination={{ pageSize: 10 }} />
+          <Table columns={studentColumns} dataSource={students} rowKey="id" loading={loading} scroll={{ x: 1300 }} pagination={{ pageSize: 10 }} />
         </Card>
       </div>
     );
@@ -155,7 +192,9 @@ const FranchiseDashboard = () => {
         </button>
         <div className="header-logo-title">
           <img src={logoImage} alt="Skilledge" className="navbar-logo" />
-          <h1 className="dashboard-title">Franchise Dashboard</h1>
+          <h1 className="dashboard-title">
+            Franchise Dashboard{franchiseName && <span style={{ marginLeft: '12px', color: 'rgba(255,255,255,0.9)', fontWeight: 700 }}>— {franchiseName}</span>}
+          </h1>
         </div>
         <Button type="text" icon={<LogOut size={20} />} onClick={handleLogout} className="logout-button">Logout</Button>
       </Header>
@@ -249,6 +288,29 @@ const FranchiseDashboard = () => {
               <Descriptions.Item label="Submitted">{dayjs(viewingStudent.created_at).format('DD MMM YYYY, hh:mm A')}</Descriptions.Item>
             </Descriptions>
           </>
+        )}
+      </Modal>
+
+      {/* Edit Student Submission Modal */}
+      <Modal
+        title="Edit Student Submission"
+        open={!!editingStudent}
+        onCancel={() => setEditingStudent(null)}
+        footer={null}
+        width={1000}
+        destroyOnClose
+      >
+        {editingStudent && (
+          <StudentForm
+            key={editingStudent.id}
+            userRole="franchise"
+            editData={editingStudent}
+            studentId={editingStudent.id}
+            onSuccess={() => {
+              setEditingStudent(null);
+              loadStudents();
+            }}
+          />
         )}
       </Modal>
     </Layout>

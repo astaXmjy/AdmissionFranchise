@@ -79,8 +79,10 @@ export const adminAPI = {
   // Select endpoints for dropdowns
   getUniversitiesSelect: () => api.get('/admin/universities/select'),
   getCoursesSelect: (universityId, degreeType) => api.get(`/admin/courses/select/${universityId}`, { params: degreeType ? { degree_type: degreeType } : {} }),
-  // Student creation by admin
+  getFeeByVariant: (variantId) => api.get('/admin/fees', { params: { course_variant_id: variantId } }),
+  // Student creation/update by admin
   createStudent: (data) => api.post('/admin/students', data),
+  updateStudent: (id, data) => api.patch(`/admin/students/${id}`, data),
 };
 
 export const franchiseAPI = {
@@ -94,6 +96,8 @@ export const franchiseAPI = {
   getUniversities: () => api.get('/franchise/universities/select'),
   getCoursesByUniversity: (universityId, degreeType) => api.get(`/franchise/courses/select/${universityId}`, { params: degreeType ? { degree_type: degreeType } : {} }),
   getBranchesByCourse: (courseId) => api.get('/franchise/branches/select', { params: { course_id: courseId } }),
+  getFeeByVariant: (variantId) => api.get('/admin/fees', { params: { course_variant_id: variantId } }),
+  updateStudent: (id, data) => api.patch(`/franchise/students/${id}`, data),
 };
 
 export default api;

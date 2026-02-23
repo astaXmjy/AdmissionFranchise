@@ -25,6 +25,7 @@ const AdminDashboard = () => {
   const [statsLoading, setStatsLoading] = useState(false);
   const [dateRange, setDateRange] = useState(null);
   const [selectedFranchise, setSelectedFranchise] = useState(null);
+  const [statusFilter, setStatusFilter] = useState(null);
   const [selectedUniversity, setSelectedUniversity] = useState(null);
   const [createFranchiseModal, setCreateFranchiseModal] = useState(false);
   const [createUniversityModal, setCreateUniversityModal] = useState(false);
@@ -41,6 +42,7 @@ const AdminDashboard = () => {
   const [editingBranch, setEditingBranch] = useState(null);
   const [editFranchiseModal, setEditFranchiseModal] = useState(false);
   const [selectedCourseForFee, setSelectedCourseForFee] = useState(null);
+  const [editingStudent, setEditingStudent] = useState(null);
   const [approveModal, setApproveModal] = useState(false);
   const [approvingStudentId, setApprovingStudentId] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -343,6 +345,7 @@ const AdminDashboard = () => {
     try {
       const params = {};
       if (selectedFranchise) params.franchise_id = selectedFranchise;
+      if (statusFilter) params.status = statusFilter;
       if (dateRange && dateRange[0] && dateRange[1]) {
         params.start_date = dateRange[0].toISOString();
         params.end_date = dateRange[1].toISOString();
@@ -376,7 +379,7 @@ const AdminDashboard = () => {
       loadCourses(); // Load courses for dropdown
       loadFees();
     }
-  }, [location.pathname, dateRange, selectedFranchise, selectedUniversity]);
+  }, [location.pathname, dateRange, selectedFranchise, selectedUniversity, statusFilter]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -535,10 +538,11 @@ const AdminDashboard = () => {
     { title: 'Degree', dataIndex: 'degree_type', key: 'degree_type', width: 80, render: (val) => val ? <Tag>{val}</Tag> : '-' },
     { title: 'University', dataIndex: 'university_name', key: 'university_name', width: 150 },
     { title: 'Course', dataIndex: 'course_name', key: 'course_name', width: 150 },
+    { title: 'Branch', dataIndex: 'branch_name', key: 'branch_name', width: 130, render: (val) => val || '-' },
     { title: 'Specialization', dataIndex: 'branch_specialization', key: 'branch_specialization', width: 140, render: (val) => val || '-' },
     { title: 'Contact', dataIndex: 'contact_number', key: 'contact_number', width: 120 },
     { title: 'Franchise', dataIndex: 'franchise_name', key: 'franchise_name', width: 130 },
-    { title: 'Total Fee', dataIndex: 'total_fee', key: 'total_fee', width: 100, render: (val) => val ? `₹${val}` : '-' },
+    { title: 'Total Fee', dataIndex: 'total_fee', key: 'total_fee', width: 110, render: (val) => val ? `₹${val}` : '-' },
     { title: 'Commission %', dataIndex: 'commission_percentage', key: 'commission_percentage', width: 110, render: (val) => val ? `${val}%` : '-' },
     { title: 'Commission', dataIndex: 'commission_amount', key: 'commission_amount', width: 110, render: (val) => val ? <Tag color="green">₹{val}</Tag> : '-' },
     { title: 'Status', dataIndex: 'status', key: 'status', width: 100, render: (status) => getStatusBadge(status) },
@@ -550,6 +554,9 @@ const AdminDashboard = () => {
       render: (_, record) => (
         <Space>
           <Button size="small" icon={<Eye size={14} />} onClick={() => setViewingStudent(record)}>View</Button>
+          {record.status === 'PENDING' && (
+            <Button size="small" icon={<Edit size={14} />} onClick={() => setEditingStudent(record)}>Edit</Button>
+          )}
           <Dropdown
             menu={{
               items: [
@@ -624,7 +631,14 @@ const AdminDashboard = () => {
     if (location.pathname === '/admin/statistics' || location.pathname === '/admin') {
       return (
         <>
-          <StatisticsCard stats={statistics} loading={statsLoading} />
+          <StatisticsCard
+            stats={statistics}
+            loading={statsLoading}
+            onCardClick={(status) => {
+              setStatusFilter(status);
+              navigate('/admin/all-submissions');
+            }}
+          />
           <Card title="Franchise-wise Statistics">
             <Table columns={franchiseColumns} dataSource={franchiseStats} rowKey="id" loading={loading} scroll={{ x: 800 }} pagination={{ pageSize: 10 }} />
           </Card>
@@ -824,13 +838,19 @@ const AdminDashboard = () => {
             <Select placeholder="Select franchise" style={{ width: 200 }} value={selectedFranchise} onChange={setSelectedFranchise} allowClear>
               {franchises.map(f => <Option key={f.id} value={f.id}>{f.full_name}</Option>)}
             </Select>
+            <span>Filter by status:</span>
+            <Select placeholder="All statuses" style={{ width: 150 }} value={statusFilter} onChange={setStatusFilter} allowClear>
+              <Option value="PENDING">Pending</Option>
+              <Option value="APPROVED">Approved</Option>
+              <Option value="FAILED">Failed</Option>
+            </Select>
             <span>Filter by date:</span>
             <RangePicker value={dateRange} onChange={setDateRange} format="YYYY-MM-DD" />
-            <Button onClick={() => { setSelectedFranchise(null); setDateRange(null); }}>Clear Filters</Button>
+            <Button onClick={() => { setSelectedFranchise(null); setStatusFilter(null); setDateRange(null); }}>Clear Filters</Button>
           </Space>
         </Card>
         <Card title={`All Submissions (${students.length})`} extra={<Button type="primary" icon={<Download size={18} />} onClick={handleExportCSV}>Export CSV</Button>}>
-          <Table columns={studentColumns} dataSource={students} rowKey="id" loading={loading} scroll={{ x: 1800 }} pagination={{ pageSize: 10 }} />
+          <Table columns={studentColumns} dataSource={students} rowKey="id" loading={loading} scroll={{ x: 1950 }} pagination={{ pageSize: 10 }} />
         </Card>
       </div>
     );
@@ -1371,6 +1391,29 @@ const AdminDashboard = () => {
             </Space>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Edit Student Submission Modal */}
+      <Modal
+        title="Edit Student Submission"
+        open={!!editingStudent}
+        onCancel={() => setEditingStudent(null)}
+        footer={null}
+        width={1000}
+        destroyOnClose
+      >
+        {editingStudent && (
+          <StudentForm
+            key={editingStudent.id}
+            userRole="admin"
+            editData={editingStudent}
+            studentId={editingStudent.id}
+            onSuccess={() => {
+              setEditingStudent(null);
+              loadStudents();
+            }}
+          />
+        )}
       </Modal>
     </Layout>
   );
