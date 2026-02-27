@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Button, Card, Table, message, DatePicker, Space, Tag, Select, Modal, Descriptions } from 'antd';
-import { FileText, Download, LogOut, Database, BarChart3, Menu as MenuIcon, Eye, Edit } from 'lucide-react';
+import { FileText, Download, LogOut, Database, BarChart3, Menu as MenuIcon, Eye, Edit, File } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
 import StudentForm from '../components/StudentForm';
 import StatisticsCard from '../components/StatisticsCard';
-import { franchiseAPI } from '../services/api';
+import { franchiseAPI, API_BASE_URL } from '../services/api';
 import logoImage from '../assets/skilledge-logo.png';
 import '../App.css';
 
@@ -250,27 +250,42 @@ const FranchiseDashboard = () => {
               <Descriptions.Item label="Session">{viewingStudent.session || '-'}</Descriptions.Item>
             </Descriptions>
 
-            <Descriptions title="10th Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
-              <Descriptions.Item label="Board">{viewingStudent.tenth_board === 'Others' ? viewingStudent.tenth_board_other : viewingStudent.tenth_board || '-'}</Descriptions.Item>
-              <Descriptions.Item label="School">{viewingStudent.tenth_school || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Passing Year">{viewingStudent.tenth_passing_year || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Percentage">{viewingStudent.tenth_percentage || '-'}</Descriptions.Item>
-            </Descriptions>
+            {viewingStudent.eighth_board && (
+              <Descriptions title="8th Class Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+                <Descriptions.Item label="Board">{viewingStudent.eighth_board === 'Others' ? viewingStudent.eighth_board_other : viewingStudent.eighth_board}</Descriptions.Item>
+                <Descriptions.Item label="School">{viewingStudent.eighth_school || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Passing Year">{viewingStudent.eighth_passing_year || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Percentage">{viewingStudent.eighth_percentage || '-'}</Descriptions.Item>
+              </Descriptions>
+            )}
 
-            <Descriptions title="12th Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
-              <Descriptions.Item label="Board">{viewingStudent.twelfth_board === 'Others' ? viewingStudent.twelfth_board_other : viewingStudent.twelfth_board || '-'}</Descriptions.Item>
-              <Descriptions.Item label="School">{viewingStudent.twelfth_school || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Passing Year">{viewingStudent.twelfth_passing_year || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Percentage">{viewingStudent.twelfth_percentage || '-'}</Descriptions.Item>
-            </Descriptions>
+            {viewingStudent.tenth_board && (
+              <Descriptions title="10th Class Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+                <Descriptions.Item label="Board">{viewingStudent.tenth_board === 'Others' ? viewingStudent.tenth_board_other : viewingStudent.tenth_board}</Descriptions.Item>
+                <Descriptions.Item label="School">{viewingStudent.tenth_school || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Passing Year">{viewingStudent.tenth_passing_year || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Percentage">{viewingStudent.tenth_percentage || '-'}</Descriptions.Item>
+              </Descriptions>
+            )}
 
-            <Descriptions title="Graduation Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
-              <Descriptions.Item label="University">{viewingStudent.grad_university || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Degree">{viewingStudent.grad_degree || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Subject">{viewingStudent.grad_subject || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Passing Year">{viewingStudent.grad_passing_year || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Percentage">{viewingStudent.grad_percentage || '-'}</Descriptions.Item>
-            </Descriptions>
+            {viewingStudent.twelfth_board && (
+              <Descriptions title="12th Class Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+                <Descriptions.Item label="Board">{viewingStudent.twelfth_board === 'Others' ? viewingStudent.twelfth_board_other : viewingStudent.twelfth_board}</Descriptions.Item>
+                <Descriptions.Item label="School">{viewingStudent.twelfth_school || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Passing Year">{viewingStudent.twelfth_passing_year || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Percentage">{viewingStudent.twelfth_percentage || '-'}</Descriptions.Item>
+              </Descriptions>
+            )}
+
+            {viewingStudent.grad_university && (
+              <Descriptions title="Graduation Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+                <Descriptions.Item label="University">{viewingStudent.grad_university}</Descriptions.Item>
+                <Descriptions.Item label="Degree">{viewingStudent.grad_degree || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Subject">{viewingStudent.grad_subject || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Passing Year">{viewingStudent.grad_passing_year || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Percentage">{viewingStudent.grad_percentage || '-'}</Descriptions.Item>
+              </Descriptions>
+            )}
 
             <Descriptions title="Contact & Address" bordered column={2} size="small" style={{ marginBottom: 16 }}>
               <Descriptions.Item label="Contact">{viewingStudent.contact_number}</Descriptions.Item>
@@ -282,11 +297,45 @@ const FranchiseDashboard = () => {
               <Descriptions.Item label="Pincode">{viewingStudent.pincode}</Descriptions.Item>
             </Descriptions>
 
-            <Descriptions title="Fee & Status" bordered column={2} size="small">
+            <Descriptions title="Fee & Status" bordered column={2} size="small" style={{ marginBottom: 16 }}>
               <Descriptions.Item label="Total Fee">{viewingStudent.total_fee ? `₹${viewingStudent.total_fee}` : '-'}</Descriptions.Item>
               <Descriptions.Item label="Status">{viewingStudent.status}</Descriptions.Item>
               <Descriptions.Item label="Submitted">{dayjs(viewingStudent.created_at).format('DD MMM YYYY, hh:mm A')}</Descriptions.Item>
             </Descriptions>
+
+            {(viewingStudent.passport_photo || viewingStudent.aadhar_card_doc || viewingStudent.doc_eighth || viewingStudent.doc_tenth || viewingStudent.doc_twelfth || viewingStudent.doc_graduation) && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12, borderBottom: '1px solid #f0f0f0', paddingBottom: 8 }}>Uploaded Documents</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                  {[
+                    { key: 'passport_photo', label: 'Passport Photo' },
+                    { key: 'aadhar_card_doc', label: 'Aadhar Card' },
+                    { key: 'doc_eighth', label: '8th Marksheet' },
+                    { key: 'doc_tenth', label: '10th Marksheet' },
+                    { key: 'doc_twelfth', label: '12th Marksheet' },
+                    { key: 'doc_graduation', label: 'Graduation Certificate' },
+                  ].filter(d => viewingStudent[d.key]).map(({ key, label }) => {
+                    const url = `${API_BASE_URL}/${viewingStudent[key]}`;
+                    const isPdf = viewingStudent[key].endsWith('.pdf');
+                    return (
+                      <div key={key} style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>{label}</div>
+                        {isPdf ? (
+                          <a href={url} target="_blank" rel="noreferrer" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '12px 16px', border: '1px solid #d9d9d9', borderRadius: 6, color: '#1677ff' }}>
+                            <File size={32} />
+                            <span style={{ fontSize: 11 }}>View PDF</span>
+                          </a>
+                        ) : (
+                          <a href={url} target="_blank" rel="noreferrer">
+                            <img src={url} alt={label} style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 6, border: '1px solid #d9d9d9' }} />
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </>
         )}
       </Modal>

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://admission-franchise-back.vercel.app';
-// const API_BASE_URL ='http://127.0.0.1:8000';
+export const API_BASE_URL = 'http://72.61.239.70';
+// export const API_BASE_URL = 'http://127.0.0.1:8000';
 
 // Create axios instance
 const api = axios.create({
@@ -76,6 +76,7 @@ export const adminAPI = {
   createBranch: (data) => api.post('/admin/branches', data),
   updateBranch: (id, data) => api.patch(`/admin/branches/${id}`, data),
   deleteBranch: (id) => api.delete(`/admin/branches/${id}`),
+  syncBranchVariants: (id) => api.post(`/admin/branches/${id}/sync-variants`),
   // Select endpoints for dropdowns
   getUniversitiesSelect: () => api.get('/admin/universities/select'),
   getCoursesSelect: (universityId, degreeType) => api.get(`/admin/courses/select/${universityId}`, { params: degreeType ? { degree_type: degreeType } : {} }),
@@ -83,6 +84,9 @@ export const adminAPI = {
   // Student creation/update by admin
   createStudent: (data) => api.post('/admin/students', data),
   updateStudent: (id, data) => api.patch(`/admin/students/${id}`, data),
+  uploadStudentDocuments: (studentId, formData) => api.post(`/admin/students/${studentId}/upload-documents`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
 };
 
 export const franchiseAPI = {
@@ -98,6 +102,9 @@ export const franchiseAPI = {
   getBranchesByCourse: (courseId) => api.get('/franchise/branches/select', { params: { course_id: courseId } }),
   getFeeByVariant: (variantId) => api.get('/admin/fees', { params: { course_variant_id: variantId } }),
   updateStudent: (id, data) => api.patch(`/franchise/students/${id}`, data),
+  uploadStudentDocuments: (studentId, formData) => api.post(`/franchise/students/${studentId}/upload-documents`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
 };
 
 export default api;

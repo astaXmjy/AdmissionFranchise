@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import dayjs from 'dayjs';
-import { Form, Input, Button, Card, message, Alert, Row, Col, Select, DatePicker } from 'antd';
-import { User, Home, BookOpen, Phone, MapPin, Hash, GraduationCap, Mail } from 'lucide-react';
+import { Form, Input, Button, Card, message, Alert, Row, Col, Select, DatePicker, Upload } from 'antd';
+import { UploadOutlined } from '@ant-design/icons';
+import { User, Home, BookOpen, Phone, MapPin, Hash, GraduationCap, Mail, FileText } from 'lucide-react';
 import { franchiseAPI, adminAPI } from '../services/api';
 
 const { Option } = Select;
@@ -32,6 +33,12 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
   const [feeDetails, setFeeDetails] = useState(null);
   const [loadingFee, setLoadingFee] = useState(false);
   const [submitAlert, setSubmitAlert] = useState(null);
+  const [passportPhotoFile, setPassportPhotoFile] = useState(null);
+  const [aadharCardFile, setAadharCardFile] = useState(null);
+  const [docEighthFile, setDocEighthFile] = useState(null);
+  const [docTenthFile, setDocTenthFile] = useState(null);
+  const [docTwelfthFile, setDocTwelfthFile] = useState(null);
+  const [docGraduationFile, setDocGraduationFile] = useState(null);
   const editInitialized = useRef(false); // { type: 'success' | 'error', message: string }
 
   const isAdmin = userRole === 'admin';
@@ -253,8 +260,9 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
   const eligibleEducationList = selectedCourse?.eligible_education
     ? selectedCourse.eligible_education.split(',').map(e => e.trim())
     : [];
-  const showTenth = eligibleEducationList.some(e => ['Class 10', 'Class 12', 'UG', 'PG'].includes(e));
-  const showTwelfth = eligibleEducationList.some(e => ['Class 12', 'UG', 'PG'].includes(e));
+  const showEighth     = eligibleEducationList.some(e => ['Class 8'].includes(e));
+  const showTenth      = eligibleEducationList.some(e => ['Class 10', 'Class 12', 'UG', 'PG'].includes(e));
+  const showTwelfth    = eligibleEducationList.some(e => ['Class 12', 'UG', 'PG'].includes(e));
   const showGraduation = eligibleEducationList.some(e => ['UG', 'PG'].includes(e));
 
   // Course has branches defined?
@@ -263,6 +271,27 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
 
   // Course types always come from course-level variants (branch_id = null)
   const courseVariants = selectedCourse?.variants?.filter(v => v.is_active !== false && !v.branch_id) || [];
+
+  const uploadDocuments = async (studentId) => {
+    const hasFiles = passportPhotoFile || aadharCardFile || docEighthFile || docTenthFile || docTwelfthFile || docGraduationFile;
+    if (!hasFiles) return;
+    const formData = new FormData();
+    if (passportPhotoFile) formData.append('passport_photo', passportPhotoFile);
+    if (aadharCardFile) formData.append('aadhar_card', aadharCardFile);
+    if (docEighthFile) formData.append('doc_eighth', docEighthFile);
+    if (docTenthFile) formData.append('doc_tenth', docTenthFile);
+    if (docTwelfthFile) formData.append('doc_twelfth', docTwelfthFile);
+    if (docGraduationFile) formData.append('doc_graduation', docGraduationFile);
+    try {
+      if (isAdmin) {
+        await adminAPI.uploadStudentDocuments(studentId, formData);
+      } else {
+        await franchiseAPI.uploadStudentDocuments(studentId, formData);
+      }
+    } catch (err) {
+      message.warning('Student created but document upload failed. Please re-upload documents from edit.');
+    }
+  };
 
   const onFinish = async (values) => {
     setLoading(true);
@@ -287,18 +316,27 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
         } else {
           await franchiseAPI.updateStudent(studentId, payload);
         }
+        await uploadDocuments(studentId);
         message.success('Student record updated successfully!');
         // Small delay so the toast is visible before the modal closes
         setTimeout(() => { if (onSuccess) onSuccess(); }, 800);
       } else {
+        let createdStudent;
         if (isAdmin) {
-          await adminAPI.createStudent(payload);
+          createdStudent = await adminAPI.createStudent(payload);
         } else {
-          await franchiseAPI.createStudent(payload);
+          createdStudent = await franchiseAPI.createStudent(payload);
         }
+        await uploadDocuments(createdStudent.data.id);
         message.success('Student admission form submitted successfully!');
         setSubmitAlert({ type: 'success', message: 'Admission form submitted successfully! The student record has been created.' });
         form.resetFields();
+        setPassportPhotoFile(null);
+        setAadharCardFile(null);
+        setDocEighthFile(null);
+        setDocTenthFile(null);
+        setDocTwelfthFile(null);
+        setDocGraduationFile(null);
         setCourses([]);
         setDegreeType(null);
         setSelectedCourse(null);
@@ -320,6 +358,7 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
     }
   };
 
+  const eighthBoardValue = Form.useWatch('eighth_board', form);
   const tenthBoardValue = Form.useWatch('tenth_board', form);
   const twelfthBoardValue = Form.useWatch('twelfth_board', form);
   const skillsValue = Form.useWatch('skills', form) || [];
@@ -743,6 +782,86 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
           )}
         </div>
 
+        {/* 8th Details — shown when eligible_education requires Class 8 */}
+        {showEighth && (
+          <div className="form-section">
+            <h3>
+              <BookOpen size={20} style={{ marginRight: '8px' }} />
+              8th Class Details
+            </h3>
+            <Row gutter={16}>
+              <Col xs={24} sm={8}>
+                <Form.Item
+                  name="eighth_board"
+                  label="Board"
+                  rules={[{ required: true, message: 'Please select board' }]}
+                >
+                  <Select placeholder="Select board" size="large">
+                    <Option value="MP Board">MP Board</Option>
+                    <Option value="CBSE">CBSE</Option>
+                    <Option value="Others">Others</Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              {eighthBoardValue === 'Others' && (
+                <Col xs={24} sm={8}>
+                  <Form.Item
+                    name="eighth_board_other"
+                    label="Board Name"
+                    rules={[{ required: true, message: 'Please enter board name' }]}
+                  >
+                    <Input placeholder="Enter board name" size="large" />
+                  </Form.Item>
+                </Col>
+              )}
+              <Col xs={24} sm={8}>
+                <Form.Item
+                  name="eighth_school"
+                  label="School Name"
+                  rules={[{ required: true, message: 'Please enter school name' }]}
+                >
+                  <Input placeholder="Enter school name" size="large" />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col xs={24} sm={8}>
+                <Form.Item
+                  name="eighth_passing_year"
+                  label="Passing Year"
+                  rules={[{ required: true, message: 'Please enter passing year' }]}
+                >
+                  <Input placeholder="e.g., 2018" size="large" maxLength={4} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={8}>
+                <Form.Item
+                  name="eighth_percentage"
+                  label="Percentage / CGPA"
+                  rules={[{ required: true, message: 'Please enter percentage' }]}
+                >
+                  <Input placeholder="e.g., 78.5%" size="large" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={8}>
+                <Form.Item label="8th Marksheet" extra="JPG, PNG or PDF, max 5 MB">
+                  <Upload
+                    beforeUpload={(file) => { setDocEighthFile(file); return false; }}
+                    onRemove={() => setDocEighthFile(null)}
+                    fileList={docEighthFile ? [{ uid: '-8', name: docEighthFile.name, status: 'done' }] : []}
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    maxCount={1}
+                  >
+                    <Button icon={<UploadOutlined />} size="large" style={{ width: '100%' }}>
+                      {docEighthFile ? 'Change File' : 'Upload 8th Marksheet'}
+                    </Button>
+                  </Upload>
+                </Form.Item>
+              </Col>
+            </Row>
+          </div>
+        )}
+
         {/* 10th Details — shown when eligible_education requires Class 10 or above */}
         {showTenth && (
           <div className="form-section">
@@ -802,6 +921,21 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
                   rules={[{ required: true, message: 'Please enter percentage' }]}
                 >
                   <Input placeholder="e.g., 85.5%" size="large" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={8}>
+                <Form.Item label="10th Marksheet" extra="JPG, PNG or PDF, max 5 MB">
+                  <Upload
+                    beforeUpload={(file) => { setDocTenthFile(file); return false; }}
+                    onRemove={() => setDocTenthFile(null)}
+                    fileList={docTenthFile ? [{ uid: '-10', name: docTenthFile.name, status: 'done' }] : []}
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    maxCount={1}
+                  >
+                    <Button icon={<UploadOutlined />} size="large" style={{ width: '100%' }}>
+                      {docTenthFile ? 'Change File' : 'Upload 10th Marksheet'}
+                    </Button>
+                  </Upload>
                 </Form.Item>
               </Col>
             </Row>
@@ -869,6 +1003,21 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
                   <Input placeholder="e.g., 78.3%" size="large" />
                 </Form.Item>
               </Col>
+              <Col xs={24} sm={8}>
+                <Form.Item label="12th Marksheet" extra="JPG, PNG or PDF, max 5 MB">
+                  <Upload
+                    beforeUpload={(file) => { setDocTwelfthFile(file); return false; }}
+                    onRemove={() => setDocTwelfthFile(null)}
+                    fileList={docTwelfthFile ? [{ uid: '-12', name: docTwelfthFile.name, status: 'done' }] : []}
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    maxCount={1}
+                  >
+                    <Button icon={<UploadOutlined />} size="large" style={{ width: '100%' }}>
+                      {docTwelfthFile ? 'Change File' : 'Upload 12th Marksheet'}
+                    </Button>
+                  </Upload>
+                </Form.Item>
+              </Col>
             </Row>
           </div>
         )}
@@ -928,6 +1077,21 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
                   <Input placeholder="e.g., 72.5%" size="large" />
                 </Form.Item>
               </Col>
+              <Col xs={24} sm={8}>
+                <Form.Item label="Graduation Certificate" extra="JPG, PNG or PDF, max 5 MB">
+                  <Upload
+                    beforeUpload={(file) => { setDocGraduationFile(file); return false; }}
+                    onRemove={() => setDocGraduationFile(null)}
+                    fileList={docGraduationFile ? [{ uid: '-g', name: docGraduationFile.name, status: 'done' }] : []}
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    maxCount={1}
+                  >
+                    <Button icon={<UploadOutlined />} size="large" style={{ width: '100%' }}>
+                      {docGraduationFile ? 'Change File' : 'Upload Graduation Certificate'}
+                    </Button>
+                  </Upload>
+                </Form.Item>
+              </Col>
             </Row>
           </div>
         )}
@@ -983,6 +1147,46 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
                 rules={[{ required: true, message: 'Please enter pincode' }]}
               >
                 <Input prefix={<Hash size={16} />} placeholder="Enter pincode" size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </div>
+
+        {/* Document Upload Section */}
+        <div className="form-section">
+          <h3>
+            <FileText size={20} style={{ marginRight: '8px' }} />
+            Document Uploads
+          </h3>
+          <Row gutter={16}>
+            <Col xs={24} sm={8}>
+              <Form.Item label="Passport Photo" extra="JPG or PNG, max 5 MB">
+                <Upload
+                  beforeUpload={(file) => { setPassportPhotoFile(file); return false; }}
+                  onRemove={() => setPassportPhotoFile(null)}
+                  fileList={passportPhotoFile ? [{ uid: '-1', name: passportPhotoFile.name, status: 'done' }] : []}
+                  accept=".jpg,.jpeg,.png"
+                  maxCount={1}
+                >
+                  <Button icon={<UploadOutlined />} size="large" style={{ width: '100%' }}>
+                    {passportPhotoFile ? 'Change Photo' : 'Upload Passport Photo'}
+                  </Button>
+                </Upload>
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Form.Item label="Aadhar Card" extra="JPG, PNG or PDF, max 5 MB">
+                <Upload
+                  beforeUpload={(file) => { setAadharCardFile(file); return false; }}
+                  onRemove={() => setAadharCardFile(null)}
+                  fileList={aadharCardFile ? [{ uid: '-2', name: aadharCardFile.name, status: 'done' }] : []}
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  maxCount={1}
+                >
+                  <Button icon={<UploadOutlined />} size="large" style={{ width: '100%' }}>
+                    {aadharCardFile ? 'Change File' : 'Upload Aadhar Card'}
+                  </Button>
+                </Upload>
               </Form.Item>
             </Col>
           </Row>

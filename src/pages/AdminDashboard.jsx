@@ -5,7 +5,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
 import StudentForm from '../components/StudentForm';
 import StatisticsCard from '../components/StatisticsCard';
-import { adminAPI } from '../services/api';
+import { adminAPI, API_BASE_URL } from '../services/api';
 import logoImage from '../assets/skilledge-logo.png';
 import '../App.css';
 
@@ -173,7 +173,7 @@ const AdminDashboard = () => {
       duration_years: course.duration_years.toString(),
       eligible_education: course.eligible_education ? course.eligible_education.split(',') : undefined,
       course_types: course.variants
-        ? course.variants.filter(v => v.is_active).map(v => v.course_type)
+        ? course.variants.filter(v => v.is_active && !v.branch_id).map(v => v.course_type)
         : [],
     });
     setCreateCourseModal(true);
@@ -725,7 +725,7 @@ const AdminDashboard = () => {
         }},
         { title: 'Types', key: 'variants', width: 200, render: (_, record) => {
           if (!record.variants || record.variants.length === 0) return '-';
-          return record.variants.filter(v => v.is_active).map(v => (
+          return record.variants.filter(v => v.is_active && !v.branch_id).map(v => (
             <Tag key={v.id} color="blue">{v.course_type}</Tag>
           ));
         }},
@@ -791,6 +791,7 @@ const AdminDashboard = () => {
         { title: 'University', key: 'university', width: 200, render: (_, record) => {
           return record.course_variant?.course?.university?.name || record.course?.university?.name || 'N/A';
         }},
+        { title: 'Branch', dataIndex: 'branch_name', key: 'branch_name', width: 150, render: (val) => val || '-' },
         { title: 'Tuition Fee', dataIndex: 'tuition_fee', key: 'tuition_fee', render: (fee) => `₹${fee}`, width: 120 },
         { title: 'Registration', dataIndex: 'registration_fee', key: 'registration_fee', render: (fee) => `₹${fee}`, width: 120 },
         { title: 'Exam (Yearly)', dataIndex: 'exam_fee_yearly', key: 'exam_fee_yearly', render: (fee) => `₹${fee}`, width: 120 },
@@ -1053,27 +1054,42 @@ const AdminDashboard = () => {
               <Descriptions.Item label="Session">{viewingStudent.session || '-'}</Descriptions.Item>
             </Descriptions>
 
-            <Descriptions title="10th Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
-              <Descriptions.Item label="Board">{viewingStudent.tenth_board === 'Others' ? viewingStudent.tenth_board_other : viewingStudent.tenth_board || '-'}</Descriptions.Item>
-              <Descriptions.Item label="School">{viewingStudent.tenth_school || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Passing Year">{viewingStudent.tenth_passing_year || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Percentage">{viewingStudent.tenth_percentage || '-'}</Descriptions.Item>
-            </Descriptions>
+            {viewingStudent.eighth_board && (
+              <Descriptions title="8th Class Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+                <Descriptions.Item label="Board">{viewingStudent.eighth_board === 'Others' ? viewingStudent.eighth_board_other : viewingStudent.eighth_board}</Descriptions.Item>
+                <Descriptions.Item label="School">{viewingStudent.eighth_school || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Passing Year">{viewingStudent.eighth_passing_year || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Percentage">{viewingStudent.eighth_percentage || '-'}</Descriptions.Item>
+              </Descriptions>
+            )}
 
-            <Descriptions title="12th Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
-              <Descriptions.Item label="Board">{viewingStudent.twelfth_board === 'Others' ? viewingStudent.twelfth_board_other : viewingStudent.twelfth_board || '-'}</Descriptions.Item>
-              <Descriptions.Item label="School">{viewingStudent.twelfth_school || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Passing Year">{viewingStudent.twelfth_passing_year || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Percentage">{viewingStudent.twelfth_percentage || '-'}</Descriptions.Item>
-            </Descriptions>
+            {viewingStudent.tenth_board && (
+              <Descriptions title="10th Class Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+                <Descriptions.Item label="Board">{viewingStudent.tenth_board === 'Others' ? viewingStudent.tenth_board_other : viewingStudent.tenth_board}</Descriptions.Item>
+                <Descriptions.Item label="School">{viewingStudent.tenth_school || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Passing Year">{viewingStudent.tenth_passing_year || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Percentage">{viewingStudent.tenth_percentage || '-'}</Descriptions.Item>
+              </Descriptions>
+            )}
 
-            <Descriptions title="Graduation Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
-              <Descriptions.Item label="University">{viewingStudent.grad_university || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Degree">{viewingStudent.grad_degree || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Subject">{viewingStudent.grad_subject || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Passing Year">{viewingStudent.grad_passing_year || '-'}</Descriptions.Item>
-              <Descriptions.Item label="Percentage">{viewingStudent.grad_percentage || '-'}</Descriptions.Item>
-            </Descriptions>
+            {viewingStudent.twelfth_board && (
+              <Descriptions title="12th Class Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+                <Descriptions.Item label="Board">{viewingStudent.twelfth_board === 'Others' ? viewingStudent.twelfth_board_other : viewingStudent.twelfth_board}</Descriptions.Item>
+                <Descriptions.Item label="School">{viewingStudent.twelfth_school || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Passing Year">{viewingStudent.twelfth_passing_year || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Percentage">{viewingStudent.twelfth_percentage || '-'}</Descriptions.Item>
+              </Descriptions>
+            )}
+
+            {viewingStudent.grad_university && (
+              <Descriptions title="Graduation Details" bordered column={2} size="small" style={{ marginBottom: 16 }}>
+                <Descriptions.Item label="University">{viewingStudent.grad_university}</Descriptions.Item>
+                <Descriptions.Item label="Degree">{viewingStudent.grad_degree || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Subject">{viewingStudent.grad_subject || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Passing Year">{viewingStudent.grad_passing_year || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Percentage">{viewingStudent.grad_percentage || '-'}</Descriptions.Item>
+              </Descriptions>
+            )}
 
             <Descriptions title="Contact & Address" bordered column={2} size="small" style={{ marginBottom: 16 }}>
               <Descriptions.Item label="Contact">{viewingStudent.contact_number}</Descriptions.Item>
@@ -1085,7 +1101,7 @@ const AdminDashboard = () => {
               <Descriptions.Item label="Pincode">{viewingStudent.pincode}</Descriptions.Item>
             </Descriptions>
 
-            <Descriptions title="Fee & Commission" bordered column={2} size="small">
+            <Descriptions title="Fee & Commission" bordered column={2} size="small" style={{ marginBottom: 16 }}>
               <Descriptions.Item label="Total Fee">{viewingStudent.total_fee ? `₹${viewingStudent.total_fee}` : '-'}</Descriptions.Item>
               <Descriptions.Item label="Commission %">{viewingStudent.commission_percentage ? `${viewingStudent.commission_percentage}%` : '-'}</Descriptions.Item>
               <Descriptions.Item label="Commission Amount">{viewingStudent.commission_amount ? `₹${viewingStudent.commission_amount}` : '-'}</Descriptions.Item>
@@ -1093,6 +1109,40 @@ const AdminDashboard = () => {
               <Descriptions.Item label="Franchise">{viewingStudent.franchise_name}</Descriptions.Item>
               <Descriptions.Item label="Submitted">{dayjs(viewingStudent.created_at).format('DD MMM YYYY, hh:mm A')}</Descriptions.Item>
             </Descriptions>
+
+            {(viewingStudent.passport_photo || viewingStudent.aadhar_card_doc || viewingStudent.doc_eighth || viewingStudent.doc_tenth || viewingStudent.doc_twelfth || viewingStudent.doc_graduation) && (
+              <div style={{ marginTop: 8 }}>
+                <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12, borderBottom: '1px solid #f0f0f0', paddingBottom: 8 }}>Uploaded Documents</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                  {[
+                    { key: 'passport_photo', label: 'Passport Photo' },
+                    { key: 'aadhar_card_doc', label: 'Aadhar Card' },
+                    { key: 'doc_eighth', label: '8th Marksheet' },
+                    { key: 'doc_tenth', label: '10th Marksheet' },
+                    { key: 'doc_twelfth', label: '12th Marksheet' },
+                    { key: 'doc_graduation', label: 'Graduation Certificate' },
+                  ].filter(d => viewingStudent[d.key]).map(({ key, label }) => {
+                    const url = `${API_BASE_URL}/${viewingStudent[key]}`;
+                    const isPdf = viewingStudent[key].endsWith('.pdf');
+                    return (
+                      <div key={key} style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>{label}</div>
+                        {isPdf ? (
+                          <a href={url} target="_blank" rel="noreferrer" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '12px 16px', border: '1px solid #d9d9d9', borderRadius: 6, color: '#1677ff' }}>
+                            <FileText size={32} />
+                            <span style={{ fontSize: 11 }}>View PDF</span>
+                          </a>
+                        ) : (
+                          <a href={url} target="_blank" rel="noreferrer">
+                            <img src={url} alt={label} style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 6, border: '1px solid #d9d9d9' }} />
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </>
         )}
       </Modal>
@@ -1350,6 +1400,18 @@ const AdminDashboard = () => {
             { title: 'Actions', key: 'actions', render: (_, record) => (
               <Space>
                 <Button size="small" icon={<Edit size={14} />} onClick={() => handleEditBranch(record)}>Edit</Button>
+                <Button
+                  size="small"
+                  onClick={async () => {
+                    try {
+                      await adminAPI.syncBranchVariants(record.id);
+                      message.success('Course types synced!');
+                      loadBranches(branchCourse.id);
+                    } catch {
+                      message.error('Failed to sync course types');
+                    }
+                  }}
+                >Sync Course Types</Button>
                 <Popconfirm
                   title="Delete Branch"
                   description={`Delete branch "${record.name}"?`}
