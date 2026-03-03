@@ -100,7 +100,7 @@ export const franchiseAPI = {
   getUniversities: () => api.get('/franchise/universities/select'),
   getCoursesByUniversity: (universityId, degreeType) => api.get(`/franchise/courses/select/${universityId}`, { params: degreeType ? { degree_type: degreeType } : {} }),
   getBranchesByCourse: (courseId) => api.get('/franchise/branches/select', { params: { course_id: courseId } }),
-  getFeeByVariant: (variantId) => api.get('/admin/fees', { params: { course_variant_id: variantId } }),
+  getFeeByVariant: (variantId) => api.get('/franchise/fees', { params: { course_variant_id: variantId } }),
   updateStudent: (id, data) => api.patch(`/franchise/students/${id}`, data),
   uploadStudentDocuments: (studentId, formData) => api.post(`/franchise/students/${studentId}/upload-documents`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
