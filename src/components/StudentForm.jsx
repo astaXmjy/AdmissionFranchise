@@ -269,8 +269,10 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
   const courseBranches = selectedCourse?.branches?.filter(b => b.is_active !== false) || [];
   const hasBranches = courseBranches.length > 0;
 
-  // Course types always come from course-level variants (branch_id = null)
-  const courseVariants = selectedCourse?.variants?.filter(v => v.is_active !== false && !v.branch_id) || [];
+  // If a branch is selected, use that branch's variants; otherwise use course-level variants
+  const courseVariants = selectedBranch
+    ? selectedBranch.variants?.filter(v => v.is_active !== false) || []
+    : selectedCourse?.variants?.filter(v => v.is_active !== false && !v.branch_id) || [];
 
   const uploadDocuments = async (studentId) => {
     const hasFiles = passportPhotoFile || aadharCardFile || docEighthFile || docTenthFile || docTwelfthFile || docGraduationFile;
@@ -733,45 +735,51 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
             </Row>
           )}
           {/* Fee Details Card */}
-          {(loadingFee || feeDetails) && (
+          {loadingFee && (
+            <div style={{ marginTop: '16px', padding: '16px', background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: '8px' }}>
+              <div style={{ color: '#888' }}>Loading fee details...</div>
+            </div>
+          )}
+          {!loadingFee && feeDetails && (
             <div style={{ marginTop: '16px', padding: '16px', background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: '8px' }}>
               <div style={{ fontWeight: 600, fontSize: '15px', marginBottom: '12px', color: '#389e0d' }}>
                 Fee Details
               </div>
-              {loadingFee ? (
-                <div style={{ color: '#888' }}>Loading fee details...</div>
-              ) : (
-                <Row gutter={[16, 8]}>
+              <Row gutter={[16, 8]}>
+                <Col xs={12} sm={6}>
+                  <div style={{ fontSize: '12px', color: '#888' }}>Tuition Fee</div>
+                  <div style={{ fontWeight: 600, fontSize: '15px' }}>₹{feeDetails.tuition_fee ?? '-'}</div>
+                </Col>
+                <Col xs={12} sm={6}>
+                  <div style={{ fontSize: '12px', color: '#888' }}>Registration Fee</div>
+                  <div style={{ fontWeight: 600, fontSize: '15px' }}>₹{feeDetails.registration_fee ?? '-'}</div>
+                </Col>
+                <Col xs={12} sm={6}>
+                  <div style={{ fontSize: '12px', color: '#888' }}>Exam Fee (Yearly)</div>
+                  <div style={{ fontWeight: 600, fontSize: '15px' }}>₹{feeDetails.exam_fee_yearly ?? '-'}</div>
+                </Col>
+                {feeDetails.other_fees > 0 && (
                   <Col xs={12} sm={6}>
-                    <div style={{ fontSize: '12px', color: '#888' }}>Tuition Fee</div>
-                    <div style={{ fontWeight: 600, fontSize: '15px' }}>₹{feeDetails.tuition_fee ?? '-'}</div>
+                    <div style={{ fontSize: '12px', color: '#888' }}>Other Fees</div>
+                    <div style={{ fontWeight: 600, fontSize: '15px' }}>₹{feeDetails.other_fees}</div>
                   </Col>
-                  <Col xs={12} sm={6}>
-                    <div style={{ fontSize: '12px', color: '#888' }}>Registration Fee</div>
-                    <div style={{ fontWeight: 600, fontSize: '15px' }}>₹{feeDetails.registration_fee ?? '-'}</div>
-                  </Col>
-                  <Col xs={12} sm={6}>
-                    <div style={{ fontSize: '12px', color: '#888' }}>Exam Fee (Yearly)</div>
-                    <div style={{ fontWeight: 600, fontSize: '15px' }}>₹{feeDetails.exam_fee_yearly ?? '-'}</div>
-                  </Col>
-                  {feeDetails.other_fees > 0 && (
-                    <Col xs={12} sm={6}>
-                      <div style={{ fontSize: '12px', color: '#888' }}>Other Fees</div>
-                      <div style={{ fontWeight: 600, fontSize: '15px' }}>₹{feeDetails.other_fees}</div>
-                    </Col>
-                  )}
-                  <Col xs={24}>
-                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #b7eb8f', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '14px', color: '#555' }}>
-                        Total Fee {feeDetails.academic_year ? `(${feeDetails.academic_year})` : ''}
-                      </span>
-                      <span style={{ fontWeight: 700, fontSize: '18px', color: '#389e0d' }}>
-                        ₹{feeDetails.total_fee ?? '-'}
-                      </span>
-                    </div>
-                  </Col>
-                </Row>
-              )}
+                )}
+                <Col xs={24}>
+                  <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #b7eb8f', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '14px', color: '#555' }}>
+                      Total Fee {feeDetails.academic_year ? `(${feeDetails.academic_year})` : ''}
+                    </span>
+                    <span style={{ fontWeight: 700, fontSize: '18px', color: '#389e0d' }}>
+                      ₹{feeDetails.total_fee ?? '-'}
+                    </span>
+                  </div>
+                </Col>
+              </Row>
+            </div>
+          )}
+          {!loadingFee && !feeDetails && selectedVariantId && (
+            <div style={{ marginTop: '16px', padding: '12px 16px', background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: '8px', color: '#ad6800' }}>
+              No fee structure set for this combination. Please contact the admin to configure fees before submitting.
             </div>
           )}
 

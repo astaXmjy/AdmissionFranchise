@@ -42,6 +42,10 @@ const AdminDashboard = () => {
   const [editingBranch, setEditingBranch] = useState(null);
   const [editFranchiseModal, setEditFranchiseModal] = useState(false);
   const [selectedCourseForFee, setSelectedCourseForFee] = useState(null);
+  const [selectedBranchForFee, setSelectedBranchForFee] = useState(null);
+  const [feeFilterCourse, setFeeFilterCourse] = useState(null);
+  const [feeFilterBranch, setFeeFilterBranch] = useState(null);
+  const [feeFilterVariant, setFeeFilterVariant] = useState(null);
   const [editingStudent, setEditingStudent] = useState(null);
   const [approveModal, setApproveModal] = useState(false);
   const [approvingStudentId, setApprovingStudentId] = useState(null);
@@ -279,17 +283,19 @@ const AdminDashboard = () => {
   };
 
   const handleCreateFee = async (values) => {
+    const { branch_id_for_fee, ...feeData } = values;
     try {
       if (editingFee) {
-        await adminAPI.updateFee(editingFee.id, values);
+        await adminAPI.updateFee(editingFee.id, feeData);
         message.success('Fee structure updated successfully!');
       } else {
-        await adminAPI.createFee(values);
+        await adminAPI.createFee(feeData);
         message.success('Fee structure created successfully!');
       }
       setCreateFeeModal(false);
       setEditingFee(null);
       setSelectedCourseForFee(null);
+      setSelectedBranchForFee(null);
       feeForm.resetFields();
       loadFees();
     } catch (error) {
@@ -299,12 +305,20 @@ const AdminDashboard = () => {
 
   const handleEditFee = (fee) => {
     setEditingFee(fee);
-    // Determine the course id from the variant info
-    const courseId = fee.course_variant?.course?.id || fee.course_variant?.course_id || null;
+    const courseId = fee.course_variant?.course?.id || null;
+    const branchId = fee.course_variant?.branch_id || null;
     setSelectedCourseForFee(courseId);
+    setSelectedBranchForFee(branchId);
     feeForm.setFieldsValue({
-      ...fee,
-      course_variant_id: fee.course_variant_id || fee.course_variant?.id,
+      course_variant_id: fee.course_variant_id,
+      branch_id_for_fee: branchId,
+      tuition_fee: fee.tuition_fee,
+      registration_fee: fee.registration_fee,
+      exam_fee_yearly: fee.exam_fee_yearly,
+      other_fees: fee.other_fees,
+      academic_year: fee.academic_year,
+      currency: fee.currency,
+      is_active: fee.is_active,
     });
     setCreateFeeModal(true);
   };
@@ -782,16 +796,29 @@ const AdminDashboard = () => {
       );
     }
     if (location.pathname === '/admin/fees') {
+      // Client-side filtering
+      const filteredFees = fees.filter(fee => {
+        if (feeFilterCourse && fee.course_variant?.course?.id !== feeFilterCourse) return false;
+        if (feeFilterBranch != null && fee.course_variant?.branch_id !== feeFilterBranch) return false;
+        if (feeFilterVariant && fee.course_variant_id !== feeFilterVariant) return false;
+        return true;
+      });
+      const filterCourse = courses.find(c => c.id === feeFilterCourse);
+      const filterBranches = filterCourse?.branches?.filter(b => b.is_active) || [];
+      const filterVariants = feeFilterBranch
+        ? filterCourse?.branches?.find(b => b.id === feeFilterBranch)?.variants?.filter(v => v.is_active) || []
+        : filterCourse?.variants?.filter(v => v.is_active && !v.branch_id) || [];
+
       const feeColumns = [
         { title: 'Course', key: 'course', width: 250, render: (_, record) => {
-          const courseName = record.course_variant?.course?.name || record.course?.name || 'N/A';
+          const courseName = record.course_variant?.course?.name || 'N/A';
           const courseType = record.course_variant?.course_type;
           return courseType ? `${courseName} (${courseType})` : courseName;
         }},
         { title: 'University', key: 'university', width: 200, render: (_, record) => {
-          return record.course_variant?.course?.university?.name || record.course?.university?.name || 'N/A';
+          return record.course_variant?.course?.university?.name || 'N/A';
         }},
-        { title: 'Branch', dataIndex: 'branch_name', key: 'branch_name', width: 150, render: (val) => val || '-' },
+        { title: 'Branch', dataIndex: 'branch_name', key: 'branch_name', width: 150, render: (val) => val || <Tag color="default">Course Level</Tag> },
         { title: 'Tuition Fee', dataIndex: 'tuition_fee', key: 'tuition_fee', render: (fee) => `₹${fee}`, width: 120 },
         { title: 'Registration', dataIndex: 'registration_fee', key: 'registration_fee', render: (fee) => `₹${fee}`, width: 120 },
         { title: 'Exam (Yearly)', dataIndex: 'exam_fee_yearly', key: 'exam_fee_yearly', render: (fee) => `₹${fee}`, width: 120 },
@@ -801,16 +828,10 @@ const AdminDashboard = () => {
         {
           title: 'Actions',
           key: 'actions',
-          width: 180,
+          width: 150,
           render: (_, record) => (
             <Space>
-              <Button
-                size="small"
-                icon={<Edit size={14} />}
-                onClick={() => handleEditFee(record)}
-              >
-                Edit
-              </Button>
+              <Button size="small" icon={<Edit size={14} />} onClick={() => handleEditFee(record)}>Edit</Button>
               <Popconfirm
                 title="Delete Fee"
                 description="Are you sure you want to delete this fee structure?"
@@ -826,9 +847,61 @@ const AdminDashboard = () => {
         }
       ];
       return (
-        <Card title={`Fee Structures (${fees.length})`} extra={<Button type="primary" icon={<Plus size={18} />} onClick={() => { setEditingFee(null); setSelectedCourseForFee(null); feeForm.resetFields(); setCreateFeeModal(true); }}>Add Fee Structure</Button>}>
-          <Table columns={feeColumns} dataSource={fees} rowKey="id" loading={loading} scroll={{ x: 1200 }} pagination={{ pageSize: 10 }} />
-        </Card>
+        <div>
+          <Card style={{ marginBottom: 16 }}>
+            <Space wrap>
+              <span>Course:</span>
+              <Select
+                placeholder="All courses"
+                showSearch
+                optionFilterProp="children"
+                style={{ width: 240 }}
+                value={feeFilterCourse}
+                onChange={(val) => { setFeeFilterCourse(val ?? null); setFeeFilterBranch(null); setFeeFilterVariant(null); }}
+                allowClear
+              >
+                {courses.map(c => <Option key={c.id} value={c.id}>{c.name} — {c.university?.name}</Option>)}
+              </Select>
+              {filterBranches.length > 0 && (
+                <>
+                  <span>Branch:</span>
+                  <Select
+                    placeholder="All branches"
+                    style={{ width: 180 }}
+                    value={feeFilterBranch}
+                    onChange={(val) => { setFeeFilterBranch(val ?? null); setFeeFilterVariant(null); }}
+                    allowClear
+                  >
+                    {filterBranches.map(b => <Option key={b.id} value={b.id}>{b.name}</Option>)}
+                  </Select>
+                </>
+              )}
+              {feeFilterCourse && filterVariants.length > 0 && (
+                <>
+                  <span>Course Type:</span>
+                  <Select
+                    placeholder="All types"
+                    style={{ width: 150 }}
+                    value={feeFilterVariant}
+                    onChange={(val) => setFeeFilterVariant(val ?? null)}
+                    allowClear
+                  >
+                    {filterVariants.map(v => <Option key={v.id} value={v.id}>{v.course_type}</Option>)}
+                  </Select>
+                </>
+              )}
+              {(feeFilterCourse || feeFilterBranch || feeFilterVariant) && (
+                <Button onClick={() => { setFeeFilterCourse(null); setFeeFilterBranch(null); setFeeFilterVariant(null); }}>Clear Filters</Button>
+              )}
+            </Space>
+          </Card>
+          <Card
+            title={`Fee Structures (${filteredFees.length}${filteredFees.length !== fees.length ? ` of ${fees.length}` : ''})`}
+            extra={<Button type="primary" icon={<Plus size={18} />} onClick={() => { setEditingFee(null); setSelectedCourseForFee(null); setSelectedBranchForFee(null); feeForm.resetFields(); setCreateFeeModal(true); }}>Add Fee Structure</Button>}
+          >
+            <Table columns={feeColumns} dataSource={filteredFees} rowKey="id" loading={loading} scroll={{ x: 1200 }} pagination={{ pageSize: 10 }} />
+          </Card>
+        </div>
       );
     }
     return (
@@ -1274,6 +1347,7 @@ const AdminDashboard = () => {
           setCreateFeeModal(false);
           setEditingFee(null);
           setSelectedCourseForFee(null);
+          setSelectedBranchForFee(null);
           feeForm.resetFields();
         }}
         footer={null}
@@ -1288,6 +1362,7 @@ const AdminDashboard = () => {
               value={selectedCourseForFee}
               onChange={(val) => {
                 setSelectedCourseForFee(val);
+                setSelectedBranchForFee(null);
                 feeForm.setFieldValue('branch_id_for_fee', undefined);
                 feeForm.setFieldValue('course_variant_id', undefined);
               }}
@@ -1295,13 +1370,15 @@ const AdminDashboard = () => {
               {courses.map(c => <Option key={c.id} value={c.id}>{c.name} - {c.university?.name}</Option>)}
             </Select>
           </Form.Item>
-          {/* If selected course has branches, show branch selector before course type */}
+          {/* Show branch selector only if the selected course has branches — branch is required in that case */}
           {selectedCourseForFee && courses.find(c => c.id === selectedCourseForFee)?.branches?.length > 0 && (
-            <Form.Item name="branch_id_for_fee" label="Branch">
+            <Form.Item name="branch_id_for_fee" label="Branch" rules={[{ required: true, message: 'Please select a branch' }]}>
               <Select
-                placeholder="Select branch (leave empty for course-level fee)"
-                allowClear
-                onChange={() => feeForm.setFieldValue('course_variant_id', undefined)}
+                placeholder="Select branch"
+                onChange={(val) => {
+                  setSelectedBranchForFee(val);
+                  feeForm.setFieldValue('course_variant_id', undefined);
+                }}
               >
                 {courses.find(c => c.id === selectedCourseForFee)?.branches
                   ?.filter(b => b.is_active)
@@ -1310,18 +1387,20 @@ const AdminDashboard = () => {
             </Form.Item>
           )}
           <Form.Item name="course_variant_id" label="Course Type" rules={[{ required: true, message: 'Please select course type' }]}>
-            <Select placeholder={selectedCourseForFee ? "Select course type" : "Please select a course first"} disabled={!selectedCourseForFee}>
+            <Select
+              placeholder={selectedCourseForFee ? "Select course type" : "Please select a course first"}
+              disabled={!selectedCourseForFee}
+            >
               {(() => {
                 const course = courses.find(c => c.id === selectedCourseForFee);
                 if (!course) return null;
-                const branchId = feeForm.getFieldValue('branch_id_for_fee');
-                if (branchId) {
-                  // Show branch-level variants
-                  return course.branches?.find(b => b.id === branchId)?.variants
+                if (selectedBranchForFee) {
+                  // Show this branch's variants
+                  return course.branches?.find(b => b.id === selectedBranchForFee)?.variants
                     ?.filter(v => v.is_active)
                     .map(v => <Option key={v.id} value={v.id}>{v.course_type}</Option>);
                 }
-                // Show course-level variants (no branch)
+                // No branches on this course — show course-level variants
                 return course.variants?.filter(v => v.is_active && !v.branch_id)
                   .map(v => <Option key={v.id} value={v.id}>{v.course_type}</Option>);
               })()}
@@ -1363,6 +1442,7 @@ const AdminDashboard = () => {
                 setCreateFeeModal(false);
                 setEditingFee(null);
                 setSelectedCourseForFee(null);
+                setSelectedBranchForFee(null);
                 feeForm.resetFields();
               }}>Cancel</Button>
             </Space>
