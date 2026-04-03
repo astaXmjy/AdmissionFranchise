@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-export const API_BASE_URL = 'https://skilledgelearning.cloud/api';
-// export const API_BASE_URL = 'http://127.0.0.1:8000';
+// export const API_BASE_URL = 'https://skilledgelearning.cloud/api';
+export const API_BASE_URL = 'http://127.0.0.1:8000';
 
 // Create axios instance
 const api = axios.create({
@@ -51,6 +51,7 @@ export const adminAPI = {
   getAllStudents: (params) => api.get('/admin/students', { params }),
   updateStudentStatus: (studentId, data) => api.patch(`/admin/students/${studentId}/status`, data),
   updateStudentCommission: (studentId, data) => api.patch(`/admin/students/${studentId}/commission`, data),
+  updateStudentRegistration: (studentId, data) => api.patch(`/admin/students/${studentId}/registration`, data),
   getStatistics: () => api.get('/admin/statistics'),
   exportStudentsCSV: (params) => api.get('/admin/students/csv', {
     params,
@@ -78,7 +79,7 @@ export const adminAPI = {
   deleteBranch: (id) => api.delete(`/admin/branches/${id}`),
   syncBranchVariants: (id) => api.post(`/admin/branches/${id}/sync-variants`),
   // Select endpoints for dropdowns
-  getUniversitiesSelect: () => api.get('/admin/universities/select'),
+  getUniversitiesSelect: (degreeType) => api.get('/admin/universities/select', { params: degreeType ? { degree_type: degreeType } : {} }),
   getCoursesSelect: (universityId, degreeType) => api.get(`/admin/courses/select/${universityId}`, { params: degreeType ? { degree_type: degreeType } : {} }),
   getFeeByVariant: (variantId) => api.get('/admin/fees', { params: { course_variant_id: variantId } }),
   // Student creation/update by admin
@@ -97,7 +98,8 @@ export const franchiseAPI = {
     params,
     responseType: 'blob'
   }),
-  getUniversities: () => api.get('/franchise/universities/select'),
+  getMyDegreeTypes: () => api.get('/franchise/me/degree-types'),
+  getUniversities: (degreeType) => api.get('/franchise/universities/select', { params: degreeType ? { degree_type: degreeType } : {} }),
   getCoursesByUniversity: (universityId, degreeType) => api.get(`/franchise/courses/select/${universityId}`, { params: degreeType ? { degree_type: degreeType } : {} }),
   getBranchesByCourse: (courseId) => api.get('/franchise/branches/select', { params: { course_id: courseId } }),
   getFeeByVariant: (variantId) => api.get('/franchise/fees', { params: { course_variant_id: variantId } }),

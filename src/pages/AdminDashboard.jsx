@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Card, message, DatePicker, Space, Tag, Modal, Form, Input, Select, Table, Dropdown, Descriptions, Popconfirm } from 'antd';
-import { Users, Download, LogOut, UserPlus, Database, FileText, BarChart3, Menu as MenuIcon, GraduationCap, Plus, Edit, Trash2, BookOpen, Eye } from 'lucide-react';
+import { Layout, Menu, Button, Card, message, DatePicker, Space, Tag, Modal, Form, Input, Select, Table, Dropdown, Descriptions, Popconfirm, Checkbox } from 'antd';
+import { Users, Download, LogOut, UserPlus, Database, FileText, BarChart3, Menu as MenuIcon, GraduationCap, Plus, Edit, Trash2, BookOpen, Eye, Hash, Key } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import dayjs from 'dayjs';
 import StudentForm from '../components/StudentForm';
@@ -49,7 +49,12 @@ const AdminDashboard = () => {
   const [editingStudent, setEditingStudent] = useState(null);
   const [approveModal, setApproveModal] = useState(false);
   const [approvingStudentId, setApprovingStudentId] = useState(null);
+  const [regModal, setRegModal] = useState(false);
+  const [regStudentId, setRegStudentId] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [degreeAccessModal, setDegreeAccessModal] = useState(false);
+  const [degreeAccessFranchise, setDegreeAccessFranchise] = useState(null);
+  const [degreeAccessSelected, setDegreeAccessSelected] = useState([]);
   const [viewingStudent, setViewingStudent] = useState(null);
   const [createForm] = Form.useForm();
   const [franchiseForm] = Form.useForm();
@@ -58,6 +63,7 @@ const AdminDashboard = () => {
   const [feeForm] = Form.useForm();
   const [commissionForm] = Form.useForm();
   const [branchForm] = Form.useForm();
+  const [regForm] = Form.useForm();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -65,6 +71,7 @@ const AdminDashboard = () => {
     { key: 'statistics', icon: <BarChart3 size={18} />, label: 'Statistics' },
     { key: 'submit-form', icon: <FileText size={18} />, label: 'Submit Form' },
     { key: 'franchises', icon: <Users size={18} />, label: 'Franchises' },
+    { key: 'degree-access', icon: <Key size={18} />, label: 'Degree Access' },
     { key: 'universities', icon: <GraduationCap size={18} />, label: 'Universities' },
     { key: 'courses', icon: <BookOpen size={18} />, label: 'Courses' },
     { key: 'fees', icon: <Database size={18} />, label: 'Fees' },
@@ -334,11 +341,14 @@ const AdminDashboard = () => {
   };
 
   const loadFranchiseStats = async () => {
+    setLoading(true);
     try {
       const response = await adminAPI.getFranchisesStatistics();
       setFranchiseStats(response.data);
     } catch (error) {
       message.error('Failed to load franchise statistics');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -382,7 +392,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (location.pathname === '/admin/all-submissions') {
       loadStudents();
-    } else if (location.pathname === '/admin/franchises' || location.pathname === '/admin/statistics' || location.pathname === '/admin') {
+    } else if (location.pathname === '/admin/franchises' || location.pathname === '/admin/statistics' || location.pathname === '/admin' || location.pathname === '/admin/degree-access') {
       loadFranchiseStats();
     } else if (location.pathname === '/admin/universities') {
       loadUniversities();
@@ -402,6 +412,11 @@ const AdminDashboard = () => {
 
   const handleCreateFranchise = async (values) => {
     try {
+      if (Array.isArray(values.allowed_degree_types)) {
+        values.allowed_degree_types = values.allowed_degree_types.length > 0
+          ? values.allowed_degree_types.join(',')
+          : null;
+      }
       await adminAPI.createFranchise(values);
       message.success('Franchise created successfully!');
       setCreateFranchiseModal(false);
@@ -423,6 +438,9 @@ const AdminDashboard = () => {
       phone_number: franchise.phone_number,
       email: franchise.email,
       is_active: franchise.is_active,
+      allowed_degree_types: franchise.allowed_degree_types
+        ? franchise.allowed_degree_types.split(',')
+        : [],
     });
     setEditFranchiseModal(true);
   };
@@ -433,6 +451,12 @@ const AdminDashboard = () => {
       if (!values.password) {
         delete values.password;
       }
+      // Convert array to comma-separated string (empty array = no restriction)
+      if (Array.isArray(values.allowed_degree_types)) {
+        values.allowed_degree_types = values.allowed_degree_types.length > 0
+          ? values.allowed_degree_types.join(',')
+          : null;
+      }
       await adminAPI.updateFranchise(editingFranchise.id, values);
       message.success('Franchise updated successfully!');
       setEditFranchiseModal(false);
@@ -442,6 +466,25 @@ const AdminDashboard = () => {
       loadFranchiseStats();
     } catch (error) {
       message.error(error.response?.data?.detail || 'Failed to update franchise');
+    }
+  };
+
+  const openDegreeAccessModal = (franchise) => {
+    setDegreeAccessFranchise(franchise);
+    setDegreeAccessSelected(franchise.allowed_degree_types ? franchise.allowed_degree_types.split(',') : []);
+    setDegreeAccessModal(true);
+  };
+
+  const handleSaveDegreeAccess = async () => {
+    try {
+      const value = degreeAccessSelected.length > 0 ? degreeAccessSelected.join(',') : null;
+      await adminAPI.updateFranchise(degreeAccessFranchise.id, { allowed_degree_types: value });
+      message.success('Degree access updated!');
+      setDegreeAccessModal(false);
+      setDegreeAccessFranchise(null);
+      loadFranchiseStats();
+    } catch (error) {
+      message.error(error.response?.data?.detail || 'Failed to update degree access');
     }
   };
 
@@ -513,6 +556,19 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleSetRegistration = async (values) => {
+    try {
+      await adminAPI.updateStudentRegistration(regStudentId, { registration_number: values.registration_number });
+      message.success('Registration number updated!');
+      setRegModal(false);
+      setRegStudentId(null);
+      regForm.resetFields();
+      loadStudents();
+    } catch (error) {
+      message.error('Failed to update registration number');
+    }
+  };
+
   const handleExportCSV = async () => {
     try {
       const params = {};
@@ -559,18 +615,30 @@ const AdminDashboard = () => {
     { title: 'Total Fee', dataIndex: 'total_fee', key: 'total_fee', width: 110, render: (val) => val ? `₹${val}` : '-' },
     { title: 'Commission %', dataIndex: 'commission_percentage', key: 'commission_percentage', width: 110, render: (val) => val ? `${val}%` : '-' },
     { title: 'Commission', dataIndex: 'commission_amount', key: 'commission_amount', width: 110, render: (val) => val ? <Tag color="green">₹{val}</Tag> : '-' },
+    { title: 'Reg. No.', dataIndex: 'registration_number', key: 'registration_number', width: 120, render: (val) => val ? <Tag color="blue">{val}</Tag> : '-' },
     { title: 'Status', dataIndex: 'status', key: 'status', width: 100, render: (status) => getStatusBadge(status) },
     { title: 'Submitted', dataIndex: 'created_at', key: 'created_at', width: 110, render: (date) => dayjs(date).format('DD MMM YYYY') },
     {
       title: 'Action',
       key: 'action',
-      width: 200,
+      width: 240,
       render: (_, record) => (
         <Space>
           <Button size="small" icon={<Eye size={14} />} onClick={() => setViewingStudent(record)}>View</Button>
           {record.status === 'PENDING' && (
             <Button size="small" icon={<Edit size={14} />} onClick={() => setEditingStudent(record)}>Edit</Button>
           )}
+          <Button
+            size="small"
+            icon={<Hash size={14} />}
+            onClick={() => {
+              setRegStudentId(record.id);
+              regForm.setFieldsValue({ registration_number: record.registration_number || '' });
+              setRegModal(true);
+            }}
+          >
+            Reg No
+          </Button>
           <Dropdown
             menu={{
               items: [
@@ -597,6 +665,11 @@ const AdminDashboard = () => {
     { title: 'Pending', dataIndex: 'pending', key: 'pending', render: (val) => <Tag color="orange">{val}</Tag> },
     { title: 'Approved', dataIndex: 'approved', key: 'approved', render: (val) => <Tag color="green">{val}</Tag> },
     { title: 'Failed', dataIndex: 'failed', key: 'failed', render: (val) => <Tag color="red">{val}</Tag> },
+    { title: 'Allowed Degrees', dataIndex: 'allowed_degree_types', key: 'allowed_degree_types', render: (val) => {
+      if (!val) return <Tag color="default">All</Tag>;
+      const colorMap = { UG: 'blue', PG: 'purple', 'Diploma/Certificate': 'cyan', Class: 'green' };
+      return val.split(',').map(t => <Tag key={t} color={colorMap[t] || 'default'}>{t}</Tag>);
+    }},
     { title: 'Status', dataIndex: 'is_active', key: 'is_active', render: (active, record) => (
       <Button
         size="small"
@@ -665,7 +738,37 @@ const AdminDashboard = () => {
     if (location.pathname === '/admin/franchises') {
       return (
         <Card title={`Franchises (${franchiseStats.length})`} extra={<Button type="primary" icon={<UserPlus size={18} />} onClick={() => setCreateFranchiseModal(true)}>Create Franchise</Button>}>
-          <Table columns={franchiseColumns} dataSource={franchiseStats} rowKey="id" loading={loading} scroll={{ x: 1400 }} pagination={{ pageSize: 10 }} />
+          <Table columns={franchiseColumns} dataSource={franchiseStats} rowKey="id" loading={loading} scroll={{ x: 1600 }} pagination={{ pageSize: 10 }} />
+        </Card>
+      );
+    }
+    if (location.pathname === '/admin/degree-access') {
+      const colorMap = { UG: 'blue', PG: 'purple', 'Diploma/Certificate': 'cyan', Class: 'green' };
+      const degreeAccessColumns = [
+        { title: 'Franchise Name', dataIndex: 'full_name', key: 'full_name' },
+        { title: 'Username', dataIndex: 'username', key: 'username' },
+        { title: 'Phone', dataIndex: 'phone_number', key: 'phone_number', render: (val) => val || '-' },
+        { title: 'Status', dataIndex: 'is_active', key: 'is_active', render: (active) => (
+          <Tag color={active ? 'green' : 'red'}>{active ? 'Active' : 'Inactive'}</Tag>
+        )},
+        { title: 'Allowed Degree Types', dataIndex: 'allowed_degree_types', key: 'allowed_degree_types',
+          render: (val) => {
+            if (!val) return <Tag color="default">All Types</Tag>;
+            return val.split(',').map(t => <Tag key={t} color={colorMap[t] || 'default'}>{t}</Tag>);
+          }
+        },
+        { title: 'Actions', key: 'actions', render: (_, record) => (
+          <Button size="small" icon={<Edit size={14} />} onClick={() => openDegreeAccessModal(record)}>
+            Edit
+          </Button>
+        )},
+      ];
+      return (
+        <Card
+          title="Franchise Degree Access"
+          extra={<span style={{ color: '#888', fontSize: 13 }}>Restrict which degree types each franchise can submit</span>}
+        >
+          <Table columns={degreeAccessColumns} dataSource={franchiseStats} rowKey="id" loading={loading} scroll={{ x: 900 }} pagination={{ pageSize: 10 }} />
         </Card>
       );
     }
@@ -951,6 +1054,7 @@ const AdminDashboard = () => {
               location.pathname === '/admin/statistics' || location.pathname === '/admin' ? 'statistics' :
               location.pathname === '/admin/submit-form' ? 'submit-form' :
               location.pathname === '/admin/franchises' ? 'franchises' :
+              location.pathname === '/admin/degree-access' ? 'degree-access' :
               location.pathname === '/admin/universities' ? 'universities' :
               location.pathname === '/admin/courses' ? 'courses' :
               location.pathname === '/admin/fees' ? 'fees' :
@@ -961,6 +1065,7 @@ const AdminDashboard = () => {
               if (key === 'statistics') navigate('/admin/statistics');
               else if (key === 'submit-form') navigate('/admin/submit-form');
               else if (key === 'franchises') navigate('/admin/franchises');
+              else if (key === 'degree-access') navigate('/admin/degree-access');
               else if (key === 'universities') navigate('/admin/universities');
               else if (key === 'courses') navigate('/admin/courses');
               else if (key === 'fees') navigate('/admin/fees');
@@ -974,6 +1079,26 @@ const AdminDashboard = () => {
         </Layout>
       </Layout>
       <Button className="mobile-sidebar-toggle" icon={<MenuIcon size={24} color="white" />} onClick={() => setMobileOpen(!mobileOpen)} />
+      <Modal
+        title={`Degree Access — ${degreeAccessFranchise?.full_name || ''}`}
+        open={degreeAccessModal}
+        onCancel={() => { setDegreeAccessModal(false); setDegreeAccessFranchise(null); }}
+        onOk={handleSaveDegreeAccess}
+        okText="Save"
+        width={320}
+      >
+        <p style={{ color: '#888', marginBottom: 12 }}>Uncheck all to allow all degree types.</p>
+        <Checkbox.Group
+          value={degreeAccessSelected}
+          onChange={setDegreeAccessSelected}
+          style={{ display: 'flex', flexDirection: 'column', gap: 10 }}
+        >
+          <Checkbox value="UG">UG (Undergraduate)</Checkbox>
+          <Checkbox value="PG">PG (Postgraduate)</Checkbox>
+          <Checkbox value="Diploma/Certificate">Diploma / Certificate</Checkbox>
+          <Checkbox value="Class">Class</Checkbox>
+        </Checkbox.Group>
+      </Modal>
       <Modal title="Create New Franchise" open={createFranchiseModal} onCancel={() => setCreateFranchiseModal(false)} footer={null} width={600}>
         <Form form={createForm} layout="vertical" onFinish={handleCreateFranchise}>
           <Form.Item name="username" label="Username" rules={[{ required: true, message: 'Please enter username' }]}>
@@ -1002,6 +1127,14 @@ const AdminDashboard = () => {
           </Form.Item>
           <Form.Item name="pan_number" label="PAN Number">
             <Input placeholder="Enter PAN number (10 characters)" maxLength={10} />
+          </Form.Item>
+          <Form.Item name="allowed_degree_types" label="Allowed Degree Types" extra="Leave empty to allow all degree types">
+            <Select mode="multiple" placeholder="Select allowed degree types (empty = all allowed)">
+              <Option value="UG">UG (Undergraduate)</Option>
+              <Option value="PG">PG (Postgraduate)</Option>
+              <Option value="Diploma/Certificate">Diploma/Certificate</Option>
+              <Option value="Class">Class</Option>
+            </Select>
           </Form.Item>
           <Form.Item>
             <Space>
@@ -1049,6 +1182,14 @@ const AdminDashboard = () => {
             <Select>
               <Option value={true}>Active</Option>
               <Option value={false}>Inactive</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="allowed_degree_types" label="Allowed Degree Types" extra="Leave empty to allow all degree types">
+            <Select mode="multiple" placeholder="Select allowed degree types (empty = all allowed)">
+              <Option value="UG">UG (Undergraduate)</Option>
+              <Option value="PG">PG (Postgraduate)</Option>
+              <Option value="Diploma/Certificate">Diploma/Certificate</Option>
+              <Option value="Class">Class</Option>
             </Select>
           </Form.Item>
           <Form.Item>
@@ -1179,6 +1320,7 @@ const AdminDashboard = () => {
               <Descriptions.Item label="Commission %">{viewingStudent.commission_percentage ? `${viewingStudent.commission_percentage}%` : '-'}</Descriptions.Item>
               <Descriptions.Item label="Commission Amount">{viewingStudent.commission_amount ? `₹${viewingStudent.commission_amount}` : '-'}</Descriptions.Item>
               <Descriptions.Item label="Status">{viewingStudent.status}</Descriptions.Item>
+              <Descriptions.Item label="Registration No.">{viewingStudent.registration_number ? <Tag color="blue">{viewingStudent.registration_number}</Tag> : '-'}</Descriptions.Item>
               <Descriptions.Item label="Franchise">{viewingStudent.franchise_name}</Descriptions.Item>
               <Descriptions.Item label="Submitted">{dayjs(viewingStudent.created_at).format('DD MMM YYYY, hh:mm A')}</Descriptions.Item>
             </Descriptions>
@@ -1530,6 +1672,31 @@ const AdminDashboard = () => {
             <Space>
               <Button type="primary" htmlType="submit">{editingBranch ? 'Update Branch' : 'Add Branch'}</Button>
               <Button onClick={() => { setCreateBranchModal(false); setEditingBranch(null); branchForm.resetFields(); }}>Cancel</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Set Registration Number Modal */}
+      <Modal
+        title="Set Registration Number"
+        open={regModal}
+        onCancel={() => { setRegModal(false); setRegStudentId(null); regForm.resetFields(); }}
+        footer={null}
+        width={400}
+      >
+        <Form form={regForm} layout="vertical" onFinish={handleSetRegistration}>
+          <Form.Item
+            name="registration_number"
+            label="Registration Number"
+            rules={[{ required: true, message: 'Please enter registration number' }]}
+          >
+            <Input placeholder="e.g., REG-2026-00123" size="large" />
+          </Form.Item>
+          <Form.Item>
+            <Space>
+              <Button type="primary" htmlType="submit">Save Registration Number</Button>
+              <Button onClick={() => { setRegModal(false); setRegStudentId(null); regForm.resetFields(); }}>Cancel</Button>
             </Space>
           </Form.Item>
         </Form>

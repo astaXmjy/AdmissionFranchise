@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import dayjs from 'dayjs';
 import { Form, Input, Button, Card, message, Alert, Row, Col, Select, DatePicker, Upload } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
-import { User, Home, BookOpen, Phone, MapPin, Hash, GraduationCap, Mail, FileText } from 'lucide-react';
+import { User, Home, BookOpen, Phone, MapPin, Hash, GraduationCap, Mail, FileText, Printer } from 'lucide-react';
 import { franchiseAPI, adminAPI } from '../services/api';
 
 const { Option } = Select;
@@ -27,12 +27,14 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
   const [loadingUniversities, setLoadingUniversities] = useState(false);
   const [loadingCourses, setLoadingCourses] = useState(false);
   const [degreeType, setDegreeType] = useState(null);
+  const [allowedDegreeTypes, setAllowedDegreeTypes] = useState(null); // null = no restriction (admin)
   const [selectedCourse, setSelectedCourse] = useState(null); // full course object with variants & eligible_education
   const [selectedBranch, setSelectedBranch] = useState(null); // selected branch object
   const [selectedVariantId, setSelectedVariantId] = useState(null);
   const [feeDetails, setFeeDetails] = useState(null);
   const [loadingFee, setLoadingFee] = useState(false);
   const [submitAlert, setSubmitAlert] = useState(null);
+  const [printData, setPrintData] = useState(null);
   const [passportPhotoFile, setPassportPhotoFile] = useState(null);
   const [aadharCardFile, setAadharCardFile] = useState(null);
   const [docEighthFile, setDocEighthFile] = useState(null);
@@ -150,18 +152,25 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
   }, [editData, universities]);
 
   useEffect(() => {
-    fetchUniversities();
+    if (!isAdmin) {
+      franchiseAPI.getMyDegreeTypes()
+        .then(res => setAllowedDegreeTypes(res.data || null))
+        .catch(() => {});
+    }
+    if (editData?.degree_type) {
+      fetchUniversities(editData.degree_type);
+    }
     if (isAdmin) {
       adminAPI.getFranchises().then(res => setFranchises(res.data || [])).catch(() => {});
     }
   }, []);
 
-  const fetchUniversities = async () => {
+  const fetchUniversities = async (degreeTypeFilter) => {
     setLoadingUniversities(true);
     try {
       const response = isAdmin
-        ? await adminAPI.getUniversitiesSelect()
-        : await franchiseAPI.getUniversities();
+        ? await adminAPI.getUniversitiesSelect(degreeTypeFilter)
+        : await franchiseAPI.getUniversities(degreeTypeFilter);
       setUniversities(response.data || []);
     } catch (error) {
       message.error('Failed to load universities');
@@ -208,15 +217,15 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
 
   const onDegreeTypeChange = (value) => {
     setDegreeType(value);
+    setUniversities([]);
     setCourses([]);
     setSelectedCourse(null);
     setSelectedBranch(null);
     setSelectedVariantId(null);
     setFeeDetails(null);
-    form.setFieldsValue({ course_id: undefined, branch_id: undefined, course_variant_id: undefined });
-    const universityId = form.getFieldValue('university_id');
-    if (universityId && value) {
-      fetchCourses(universityId, value);
+    form.setFieldsValue({ university_id: undefined, course_id: undefined, branch_id: undefined, course_variant_id: undefined });
+    if (value) {
+      fetchUniversities(value);
     }
   };
 
@@ -331,6 +340,7 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
         }
         await uploadDocuments(createdStudent.data.id);
         message.success('Student admission form submitted successfully!');
+        setPrintData({ student: createdStudent.data, fee: feeDetails });
         setSubmitAlert({ type: 'success', message: 'Admission form submitted successfully! The student record has been created.' });
         form.resetFields();
         setPassportPhotoFile(null);
@@ -357,6 +367,140 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
       setSubmitAlert({ type: 'error', message: errMsg });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePrint = () => {
+    if (!printData) return;
+    const s = printData.student;
+    const fee = printData.fee;
+    const studentName = [s.first_name, s.middle_name, s.last_name].filter(Boolean).join(' ');
+    const submittedDate = new Date(s.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admission Form - ${studentName}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 13px; color: #222; padding: 24px; }
+    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 14px; }
+    .header h1 { font-size: 22px; color: #333; letter-spacing: 1px; }
+    .header h2 { font-size: 15px; color: #555; margin-top: 4px; }
+    .form-id { font-size: 12px; color: #777; margin-top: 6px; }
+    .section { margin-bottom: 16px; page-break-inside: avoid; }
+    .section-title { background: #f0f0f0; padding: 6px 10px; font-weight: bold; font-size: 13px; border-left: 4px solid #ff0080; margin-bottom: 8px; }
+    .row { display: flex; flex-wrap: wrap; margin-bottom: 4px; }
+    .field { flex: 1 1 200px; padding: 4px 8px; min-width: 160px; }
+    .field-label { font-size: 10px; color: #888; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 1px; }
+    .field-value { font-size: 13px; font-weight: 500; border-bottom: 1px solid #ddd; padding-bottom: 3px; min-height: 20px; }
+    .field-full { flex: 0 0 100%; }
+    .edu-row { margin-bottom: 6px; padding: 6px 8px; background: #fafafa; border-left: 3px solid #ddd; font-size: 12px; }
+    .footer { margin-top: 32px; display: flex; justify-content: space-between; align-items: flex-end; padding-top: 16px; border-top: 1px solid #ddd; }
+    .signature-box { text-align: center; width: 180px; }
+    .signature-line { border-bottom: 1px solid #333; margin-bottom: 6px; height: 50px; }
+    .signature-label { font-size: 11px; color: #555; }
+    .total-fee { font-size: 16px; font-weight: bold; color: #2a7d0a; }
+    @media print { body { padding: 12px; } button { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>SkillEdge Learning</h1>
+    <h2>Student Admission Form</h2>
+    <div class="form-id">Form No: ${s.id} &nbsp;|&nbsp; Submitted: ${submittedDate} &nbsp;|&nbsp; Status: ${s.status}</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Personal Details</div>
+    <div class="row">
+      <div class="field field-full"><div class="field-label">Student Full Name</div><div class="field-value">${studentName}</div></div>
+    </div>
+    <div class="row">
+      <div class="field"><div class="field-label">Date of Birth</div><div class="field-value">${s.dob || '-'}</div></div>
+      <div class="field"><div class="field-label">Contact Number</div><div class="field-value">${s.contact_number || '-'}</div></div>
+      <div class="field"><div class="field-label">Email</div><div class="field-value">${s.email || '-'}</div></div>
+    </div>
+    <div class="row">
+      <div class="field"><div class="field-label">Father's Name</div><div class="field-value">${s.father_name || '-'}</div></div>
+      <div class="field"><div class="field-label">Mother's Name</div><div class="field-value">${s.mother_name || '-'}</div></div>
+      <div class="field"><div class="field-label">Aadhar Number</div><div class="field-value">${s.aadhar_number || '-'}</div></div>
+    </div>
+    <div class="row">
+      <div class="field"><div class="field-label">APAAR ID</div><div class="field-value">${s.apaar_id || '-'}</div></div>
+      <div class="field"><div class="field-label">Session</div><div class="field-value">${s.session || '-'}</div></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Academic Details</div>
+    <div class="row">
+      <div class="field"><div class="field-label">Degree Type</div><div class="field-value">${s.degree_type || '-'}</div></div>
+      <div class="field"><div class="field-label">University</div><div class="field-value">${s.university_name || '-'}</div></div>
+      <div class="field"><div class="field-label">Course</div><div class="field-value">${s.course_name || '-'}</div></div>
+    </div>
+    <div class="row">
+      ${s.branch_name ? `<div class="field"><div class="field-label">Branch</div><div class="field-value">${s.branch_name}</div></div>` : ''}
+      <div class="field"><div class="field-label">Course Type</div><div class="field-value">${s.course_type || '-'}</div></div>
+      <div class="field"><div class="field-label">Specialization</div><div class="field-value">${s.branch_specialization || '-'}</div></div>
+    </div>
+    ${s.skills ? `<div class="row"><div class="field field-full"><div class="field-label">Skills</div><div class="field-value">${s.skills}</div></div></div>` : ''}
+  </div>
+
+  <div class="section">
+    <div class="section-title">Fee Details</div>
+    ${fee ? `
+    <div class="row">
+      <div class="field"><div class="field-label">Tuition Fee</div><div class="field-value">&#8377;${fee.tuition_fee}</div></div>
+      <div class="field"><div class="field-label">Registration Fee</div><div class="field-value">&#8377;${fee.registration_fee}</div></div>
+      <div class="field"><div class="field-label">Exam Fee (Yearly)</div><div class="field-value">&#8377;${fee.exam_fee_yearly}</div></div>
+      ${parseFloat(fee.other_fees) > 0 ? `<div class="field"><div class="field-label">Other Fees</div><div class="field-value">&#8377;${fee.other_fees}</div></div>` : ''}
+    </div>
+    <div class="row">
+      <div class="field"><div class="field-label">Total Fee (First Year)</div><div class="field-value total-fee">&#8377;${fee.total_fee}${fee.academic_year ? ' (' + fee.academic_year + ')' : ''}</div></div>
+    </div>` : `<div class="row"><div class="field"><div class="field-label">Total Fee</div><div class="field-value total-fee">${s.total_fee ? '&#8377;' + s.total_fee : '-'}</div></div></div>`}
+  </div>
+
+  ${(s.eighth_board || s.tenth_board || s.twelfth_board || s.grad_university) ? `<div class="section">
+    <div class="section-title">Education History</div>
+    ${s.eighth_board ? `<div class="edu-row"><strong>8th Class</strong> &mdash; Board: ${s.eighth_board === 'Others' ? (s.eighth_board_other || '-') : s.eighth_board} | School: ${s.eighth_school || '-'} | Year: ${s.eighth_passing_year || '-'} | %: ${s.eighth_percentage || '-'}</div>` : ''}
+    ${s.tenth_board ? `<div class="edu-row"><strong>10th Class</strong> &mdash; Board: ${s.tenth_board === 'Others' ? (s.tenth_board_other || '-') : s.tenth_board} | School: ${s.tenth_school || '-'} | Year: ${s.tenth_passing_year || '-'} | %: ${s.tenth_percentage || '-'}</div>` : ''}
+    ${s.twelfth_board ? `<div class="edu-row"><strong>12th Class</strong> &mdash; Board: ${s.twelfth_board === 'Others' ? (s.twelfth_board_other || '-') : s.twelfth_board} | School: ${s.twelfth_school || '-'} | Year: ${s.twelfth_passing_year || '-'} | %: ${s.twelfth_percentage || '-'}</div>` : ''}
+    ${s.grad_university ? `<div class="edu-row"><strong>Graduation</strong> &mdash; University: ${s.grad_university} | Degree: ${s.grad_degree || '-'} | Subject: ${s.grad_subject || '-'} | Year: ${s.grad_passing_year || '-'} | %: ${s.grad_percentage || '-'}</div>` : ''}
+  </div>` : ''}
+
+  <div class="section">
+    <div class="section-title">Contact &amp; Address</div>
+    <div class="row">
+      <div class="field field-full"><div class="field-label">Address</div><div class="field-value">${[s.street_locality, s.city, s.district, s.state].filter(Boolean).join(', ')} &mdash; ${s.pincode || ''}</div></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="signature-box">
+      <div class="signature-line"></div>
+      <div class="signature-label">Student's Signature</div>
+    </div>
+    <div style="text-align:center;font-size:11px;color:#777;line-height:1.8;">
+      <div>Form ID: <strong>${s.id}</strong></div>
+      <div>Franchise: ${s.franchise_name || '-'}</div>
+      <div>Date: ${submittedDate}</div>
+    </div>
+    <div class="signature-box">
+      <div class="signature-line"></div>
+      <div class="signature-label">Authorized Signature &amp; Seal</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const w = window.open('', '_blank', 'width=900,height=750');
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      setTimeout(() => { w.print(); }, 400);
     }
   };
 
@@ -543,10 +687,14 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
                 rules={[{ required: true, message: 'Please select degree type' }]}
               >
                 <Select placeholder="Select degree type" size="large" onChange={onDegreeTypeChange}>
-                  <Option value="UG">UG (Undergraduate)</Option>
-                  <Option value="PG">PG (Postgraduate)</Option>
-                  <Option value="Diploma/Certificate">Diploma/Certificate</Option>
-                  <Option value="Class">Class</Option>
+                  {[
+                    { value: 'UG', label: 'UG (Undergraduate)' },
+                    { value: 'PG', label: 'PG (Postgraduate)' },
+                    { value: 'Diploma/Certificate', label: 'Diploma/Certificate' },
+                    { value: 'Class', label: 'Class' },
+                  ]
+                    .filter(opt => isAdmin || !allowedDegreeTypes || allowedDegreeTypes.includes(opt.value))
+                    .map(opt => <Option key={opt.value} value={opt.value}>{opt.label}</Option>)}
                 </Select>
               </Form.Item>
             </Col>
@@ -1208,9 +1356,22 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
               description={submitAlert.message}
               showIcon
               closable
-              onClose={() => setSubmitAlert(null)}
+              onClose={() => { setSubmitAlert(null); setPrintData(null); }}
               style={{ marginBottom: 8 }}
             />
+          </Form.Item>
+        )}
+
+        {printData && (
+          <Form.Item>
+            <Button
+              icon={<Printer size={16} />}
+              onClick={handlePrint}
+              size="large"
+              style={{ background: '#389e0d', borderColor: '#389e0d', color: '#fff' }}
+            >
+              Print Admission Form
+            </Button>
           </Form.Item>
         )}
 

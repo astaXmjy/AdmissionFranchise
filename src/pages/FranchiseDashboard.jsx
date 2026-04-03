@@ -129,6 +129,7 @@ const FranchiseDashboard = () => {
     { title: 'Specialization', dataIndex: 'branch_specialization', key: 'branch_specialization', width: 140, render: (val) => val || '-' },
     { title: 'Contact', dataIndex: 'contact_number', key: 'contact_number', width: 120 },
     { title: 'Total Fee', dataIndex: 'total_fee', key: 'total_fee', width: 110, render: (val) => val ? `₹${val}` : '-' },
+    { title: 'Reg. No.', key: 'registration_number', width: 130, render: (_, record) => record.status === 'APPROVED' && record.registration_number ? <Tag color="green">{record.registration_number}</Tag> : '-' },
     { title: 'Status', dataIndex: 'status', key: 'status', width: 120, render: (status) => getStatusBadge(status) },
     { title: 'Submitted', dataIndex: 'created_at', key: 'created_at', width: 110, render: (date) => dayjs(date).format('DD MMM YYYY') },
     {
@@ -299,7 +300,12 @@ const FranchiseDashboard = () => {
 
             <Descriptions title="Fee & Status" bordered column={2} size="small" style={{ marginBottom: 16 }}>
               <Descriptions.Item label="Total Fee">{viewingStudent.total_fee ? `₹${viewingStudent.total_fee}` : '-'}</Descriptions.Item>
-              <Descriptions.Item label="Status">{viewingStudent.status}</Descriptions.Item>
+              <Descriptions.Item label="Status">{getStatusBadge(viewingStudent.status)}</Descriptions.Item>
+              {viewingStudent.status === 'APPROVED' && viewingStudent.registration_number && (
+                <Descriptions.Item label="Registration No." span={2}>
+                  <Tag color="green" style={{ fontSize: 14, padding: '2px 10px' }}>{viewingStudent.registration_number}</Tag>
+                </Descriptions.Item>
+              )}
               <Descriptions.Item label="Submitted">{dayjs(viewingStudent.created_at).format('DD MMM YYYY, hh:mm A')}</Descriptions.Item>
             </Descriptions>
 
