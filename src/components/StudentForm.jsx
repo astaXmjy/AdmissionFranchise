@@ -370,10 +370,10 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
     }
   };
 
-  const handlePrint = () => {
-    if (!printData) return;
-    const s = printData.student;
-    const fee = printData.fee;
+  const handlePrint = (overrideStudent = null, overrideFee = null) => {
+    const s = overrideStudent || (printData && printData.student);
+    const fee = overrideFee || (printData && printData.fee);
+    if (!s) return;
     const studentName = [s.first_name, s.middle_name, s.last_name].filter(Boolean).join(' ');
     const submittedDate = new Date(s.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
 
@@ -1362,15 +1362,15 @@ const StudentForm = ({ onSuccess, userRole, editData, studentId }) => {
           </Form.Item>
         )}
 
-        {printData && (
+        {(printData || editData) && (
           <Form.Item>
             <Button
               icon={<Printer size={16} />}
-              onClick={handlePrint}
+              onClick={() => handlePrint(editData || null, feeDetails)}
               size="large"
               style={{ background: '#389e0d', borderColor: '#389e0d', color: '#fff' }}
             >
-              Print Admission Form
+              Print / Download PDF
             </Button>
           </Form.Item>
         )}
